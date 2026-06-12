@@ -3,6 +3,7 @@ import { ScanConfig, FileVersion, ScanProgress } from '../types';
 import { VersionManager, formatTimestamp, getTimeDifference } from '../utils/versionManager';
 import { formatFileSize } from '../utils/deduplication';
 import { exportVersionReport } from '../utils/export';
+import { generateMockFiles, generateMockVersions } from '../mock/mockData';
 
 interface VersionComparePageProps {
   config: ScanConfig;
@@ -21,32 +22,28 @@ export default function VersionComparePage({ config }: VersionComparePageProps) 
     setVersions([]);
     setSelectedVersions(new Set());
 
-    const manager = new VersionManager();
-
-    // 模拟文件列表
-    const mockFiles = [
-      { path: '合同v1.xlsx', name: '合同v1.xlsx', size: 1024, modified: Date.now() / 1000 - 86400, created: Date.now() / 1000 - 86400, isDir: false, extension: 'xlsx' },
-      { path: '合同v2.xlsx', name: '合同v2.xlsx', size: 1024, modified: Date.now() / 1000, created: Date.now() / 1000, isDir: false, extension: 'xlsx' },
-      { path: '报告_修改版.pdf', name: '报告_修改版.pdf', size: 2048, modified: Date.now() / 1000 - 172800, created: Date.now() / 1000 - 172800, isDir: false, extension: 'pdf' },
-      { path: '报告_最终版.pdf', name: '报告_最终版.pdf', size: 2048, modified: Date.now() / 1000, created: Date.now() / 1000, isDir: false, extension: 'pdf' },
-    ];
+    // 使用mock数据进行测试
+    const mockFiles = generateMockFiles();
 
     try {
       // 模拟扫描进度
-      for (let i = 0; i <= 100; i += 10) {
+      for (let i = 0; i <= 100; i += 20) {
+        const currentIndex = Math.min(Math.floor(i / 100 * mockFiles.length), mockFiles.length - 1);
         setProgress({
-          currentFile: `扫描文件 ${i}/100`,
+          currentFile: mockFiles[currentIndex].name,
           processedCount: i,
           totalCount: 100,
           percentage: i,
           status: 'scanning',
         });
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 150));
       }
 
-      const result = manager.analyzeVersions(mockFiles, config.nameSimilarityThreshold);
+      // 使用预生成的mock版本组
+      const result = generateMockVersions();
 
       // 应用时间范围筛选
+      const manager = new VersionManager();
       const filtered = timeRange.start || timeRange.end
         ? manager.filterByTimeRange(result, timeRange.start, timeRange.end)
         : result;

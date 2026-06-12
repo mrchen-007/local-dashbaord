@@ -4,8 +4,9 @@ import Sidebar from './components/Sidebar';
 import FileFingerprintPage from './pages/FileFingerprintPage';
 import DeduplicationPage from './pages/DeduplicationPage';
 import VersionComparePage from './pages/VersionComparePage';
+import TestPage from './pages/TestPage';
 
-type Page = 'fingerprint' | 'deduplication' | 'version';
+type Page = 'fingerprint' | 'deduplication' | 'version' | 'test';
 
 function App() {
   const [theme, setTheme] = useState<Theme>('light');
@@ -36,6 +37,8 @@ function App() {
         return <DeduplicationPage config={scanConfig} onUpdateConfig={updateScanConfig} />;
       case 'version':
         return <VersionComparePage config={scanConfig} />;
+      case 'test':
+        return <TestPage />;
       default:
         return <DeduplicationPage config={scanConfig} onUpdateConfig={updateScanConfig} />;
     }

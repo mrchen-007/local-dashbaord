@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { ScanConfig, DuplicateGroup, MatchMode, ScanProgress } from '../types';
 import { DeduplicationEngine, formatFileSize, calculateDuplicateRate } from '../utils/deduplication';
 import { exportDuplicateReport } from '../utils/export';
+import { generateMockFiles, generateMockDuplicateGroups } from '../mock/mockData';
 
 interface DeduplicationPageProps {
   config: ScanConfig;
@@ -20,28 +21,27 @@ export default function DeduplicationPage({ config, onUpdateConfig }: Deduplicat
     setDuplicateGroups([]);
     setSelectedGroups(new Set());
 
-    const engine = new DeduplicationEngine(config);
-
-    // 模拟文件列表（实际应用中从 Tauri 后端获取）
-    const mockFiles = [
-      { path: 'file1.xlsx', name: '合同.xlsx', size: 1024, modified: Date.now() / 1000, created: Date.now() / 1000, isDir: false, extension: 'xlsx' },
-      { path: 'file2.xlsx', name: '合同_副本.xlsx', size: 1024, modified: Date.now() / 1000, created: Date.now() / 1000, isDir: false, extension: 'xlsx' },
-      { path: 'file3.pdf', name: '报告.pdf', size: 2048, modified: Date.now() / 1000, created: Date.now() / 1000, isDir: false, extension: 'pdf' },
-      { path: 'file4.pdf', name: '报告v2.pdf', size: 2048, modified: Date.now() / 1000, created: Date.now() / 1000, isDir: false, extension: 'pdf' },
-    ];
+    // 使用mock数据进行测试
+    const mockFiles = generateMockFiles();
 
     try {
-      const groups = await engine.scanForDuplicates(mockFiles, (percentage, currentFile) => {
+      // 模拟扫描进度
+      for (let i = 0; i <= 100; i += 10) {
+        const currentIndex = Math.min(Math.floor(i / 100 * mockFiles.length), mockFiles.length - 1);
         setProgress({
-          currentFile,
-          processedCount: Math.round(percentage),
+          currentFile: mockFiles[currentIndex].name,
+          processedCount: i,
           totalCount: 100,
-          percentage,
+          percentage: i,
           status: 'hashing',
         });
-      });
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
 
+      // 使用预生成的mock重复组
+      const groups = generateMockDuplicateGroups();
       setDuplicateGroups(groups);
+
       setProgress({
         currentFile: '',
         processedCount: 100,

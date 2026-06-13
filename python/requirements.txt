@@ -1,0 +1,19 @@
+# Python 依赖文件
+# 用于数据提取模块
+
+# 文档解析 - Kreuzberg
+kreuzberg>=0.3.0
+
+# HTTP 服务 - FastAPI
+fastapi>=0.104.0
+uvicorn>=0.24.0
+
+# 深度学习 - Transformers (用于 SiameseUIE)
+transformers>=4.35.0
+torch>=2.1.0
+
+# 数据处理
+pydantic>=2.5.0
+
+# 工具库
+python-multipart>=0.0.6

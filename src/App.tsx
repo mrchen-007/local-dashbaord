@@ -5,8 +5,9 @@ import FileFingerprintPage from './pages/FileFingerprintPage';
 import DeduplicationPage from './pages/DeduplicationPage';
 import VersionComparePage from './pages/VersionComparePage';
 import TestPage from './pages/TestPage';
+import DataExtractionPage from './pages/DataExtractionPage';
 
-type Page = 'fingerprint' | 'deduplication' | 'version' | 'test';
+type Page = 'fingerprint' | 'deduplication' | 'version' | 'test' | 'extraction';
 
 function App() {
   const [theme, setTheme] = useState<Theme>('light');
@@ -39,6 +40,8 @@ function App() {
         return <VersionComparePage config={scanConfig} />;
       case 'test':
         return <TestPage />;
+      case 'extraction':
+        return <DataExtractionPage />;
       default:
         return <DeduplicationPage config={scanConfig} onUpdateConfig={updateScanConfig} />;
     }

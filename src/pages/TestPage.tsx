@@ -15,6 +15,7 @@ import {
   formatRealTimestamp,
 } from '../mock/realData';
 import { calculateNameSimilarity, detectVersionTag } from '../utils/similarity';
+import { exportTestReport, exportTextReport } from '../utils/reportGenerator';
 
 type TestModule = 'files' | 'similarity' | 'duplicates' | 'versions' | 'hash';
 type DataSource = 'mock' | 'real';
@@ -164,6 +165,27 @@ export default function TestPage() {
     setTestResults(results);
   }, []);
 
+  // 导出Excel报告
+  const handleExportExcel = useCallback(() => {
+    const sourceLabel = dataSource === 'real' ? '西北工业大学友谊校区建设工程' : 'Mock数据';
+    exportTestReport(currentFiles, duplicateGroups, versions, sourceLabel);
+  }, [dataSource, currentFiles, duplicateGroups, versions]);
+
+  // 导出文本报告
+  const handleExportText = useCallback(() => {
+    const sourceLabel = dataSource === 'real' ? '西北工业大学友谊校区建设工程' : 'Mock数据';
+    const text = exportTextReport(currentFiles, duplicateGroups, versions, sourceLabel);
+
+    // 创建下载
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `去重工具测试报告_${sourceLabel}_${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [dataSource, currentFiles, duplicateGroups, versions]);
+
   // 计算统计信息
   const totalSavedSpace = duplicateGroups.reduce((sum, g) => sum + g.savedSpace, 0);
   const totalOutdatedVersions = versions.reduce(
@@ -212,6 +234,28 @@ export default function TestPage() {
             {module === 'hash' && '哈希计算'}
           </button>
         ))}
+      </div>
+
+      {/* 导出按钮 */}
+      <div className="flex gap-2 mb-6">
+        <button
+          onClick={handleExportExcel}
+          className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 flex items-center gap-2"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          导出Excel报告
+        </button>
+        <button
+          onClick={handleExportText}
+          className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 flex items-center gap-2"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          导出文本报告
+        </button>
       </div>
 
       {/* 进度条 */}

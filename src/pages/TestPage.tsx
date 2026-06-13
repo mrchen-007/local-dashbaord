@@ -7,17 +7,31 @@ import {
   formatFileSize,
   formatTimestamp,
 } from '../mock/mockData';
+import {
+  realFiles,
+  generateRealDuplicateGroups,
+  generateRealVersions,
+  formatRealFileSize,
+  formatRealTimestamp,
+} from '../mock/realData';
 import { calculateNameSimilarity, detectVersionTag } from '../utils/similarity';
 
 type TestModule = 'files' | 'similarity' | 'duplicates' | 'versions' | 'hash';
+type DataSource = 'mock' | 'real';
 
 export default function TestPage() {
   const [activeModule, setActiveModule] = useState<TestModule>('files');
+  const [dataSource, setDataSource] = useState<DataSource>('real');
   const [mockFiles, setMockFiles] = useState(generateMockFiles());
   const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([]);
   const [versions, setVersions] = useState<FileVersion[]>([]);
   const [progress, setProgress] = useState<ScanProgress | null>(null);
   const [testResults, setTestResults] = useState<string[]>([]);
+
+  // 根据数据源获取文件列表
+  const currentFiles = dataSource === 'real' ? realFiles : mockFiles;
+  const currentFormatSize = dataSource === 'real' ? formatRealFileSize : formatFileSize;
+  const currentFormatTime = dataSource === 'real' ? formatRealTimestamp : formatTimestamp;
 
   // 测试文件名相似度
   const testSimilarity = useCallback(() => {
@@ -62,8 +76,9 @@ export default function TestPage() {
     let progress = 0;
     const interval = setInterval(() => {
       progress += 20;
+      const currentIndex = Math.min(Math.floor(progress / 100 * currentFiles.length), currentFiles.length - 1);
       setProgress({
-        currentFile: `分析文件 ${progress}%...`,
+        currentFile: currentFiles[currentIndex].name,
         processedCount: progress,
         totalCount: 100,
         percentage: progress,
@@ -72,7 +87,7 @@ export default function TestPage() {
 
       if (progress >= 100) {
         clearInterval(interval);
-        const groups = generateMockDuplicateGroups();
+        const groups = dataSource === 'real' ? generateRealDuplicateGroups() : generateMockDuplicateGroups();
         setDuplicateGroups(groups);
         setProgress({
           currentFile: '完成',
@@ -83,7 +98,7 @@ export default function TestPage() {
         });
       }
     }, 300);
-  }, []);
+  }, [dataSource, currentFiles]);
 
   // 测试版本比对
   const testVersionComparison = useCallback(() => {
@@ -99,8 +114,9 @@ export default function TestPage() {
     let progress = 0;
     const interval = setInterval(() => {
       progress += 25;
+      const currentIndex = Math.min(Math.floor(progress / 100 * currentFiles.length), currentFiles.length - 1);
       setProgress({
-        currentFile: `扫描版本 ${progress}%...`,
+        currentFile: currentFiles[currentIndex].name,
         processedCount: progress,
         totalCount: 100,
         percentage: progress,
@@ -109,7 +125,7 @@ export default function TestPage() {
 
       if (progress >= 100) {
         clearInterval(interval);
-        const versionList = generateMockVersions();
+        const versionList = dataSource === 'real' ? generateRealVersions() : generateMockVersions();
         setVersions(versionList);
         setProgress({
           currentFile: '完成',
@@ -120,7 +136,7 @@ export default function TestPage() {
         });
       }
     }, 250);
-  }, []);
+  }, [dataSource, currentFiles]);
 
   // 测试哈希计算（模拟）
   const testHashCalculation = useCallback(() => {
@@ -158,7 +174,24 @@ export default function TestPage() {
   return (
     <div className="p-8">
       <h2 className="text-2xl font-bold mb-2">本地测试页面</h2>
-      <p className="text-gray-500 mb-6">使用 Mock 数据测试各个模块功能</p>
+      <p className="text-gray-500 mb-6">使用真实项目数据测试各个模块功能</p>
+
+      {/* 数据源选择 */}
+      <div className="flex items-center gap-4 mb-6">
+        <span className="text-sm font-medium">数据源:</span>
+        <button
+          onClick={() => setDataSource('real')}
+          className={`px-4 py-2 rounded ${dataSource === 'real' ? 'bg-green-500 text-white' : 'bg-gray-200'}`}
+        >
+          真实数据 (西北工业大学项目)
+        </button>
+        <button
+          onClick={() => setDataSource('mock')}
+          className={`px-4 py-2 rounded ${dataSource === 'mock' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+        >
+          Mock数据
+        </button>
+      </div>
 
       {/* 模块选择 */}
       <div className="flex gap-2 mb-6">
@@ -200,7 +233,9 @@ export default function TestPage() {
       {/* 文件列表模块 */}
       {activeModule === 'files' && (
         <div>
-          <h3 className="text-lg font-semibold mb-4">模拟文件列表 ({mockFiles.length} 个文件)</h3>
+          <h3 className="text-lg font-semibold mb-4">
+            {dataSource === 'real' ? '西北工业大学友谊校区建设工程' : '模拟文件'} ({currentFiles.length} 个文件)
+          </h3>
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <table className="w-full">
               <thead className="bg-gray-50">
@@ -212,11 +247,11 @@ export default function TestPage() {
                 </tr>
               </thead>
               <tbody>
-                {mockFiles.map((file, index) => (
+                {currentFiles.map((file, index) => (
                   <tr key={index} className="border-t hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm font-medium">{file.name}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{formatFileSize(file.size)}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{formatTimestamp(file.modified)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{currentFormatSize(file.size)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{currentFormatTime(file.modified)}</td>
                     <td className="px-4 py-3 text-sm text-gray-400 truncate max-w-xs">{file.path}</td>
                   </tr>
                 ))}

@@ -220,6 +220,84 @@ export class VersionManager {
   }
 
   /**
+   * 生成保留最新版本的建议
+   * 返回每个版本组的保留/删除建议
+   */
+  generateKeepLatestPlan(versions: FileVersion[]): KeepLatestPlan[] {
+    return versions.map(version => ({
+      baseName: version.baseName,
+      keepFile: {
+        path: version.latestVersion.path,
+        name: version.latestVersion.name,
+        size: version.latestVersion.size,
+        modified: version.latestVersion.modified,
+        versionTag: version.latestVersion.versionTag,
+      },
+      removeFiles: version.versions
+        .filter(v => !v.isLatest)
+        .map(v => ({
+          path: v.path,
+          name: v.name,
+          size: v.size,
+          modified: v.modified,
+          versionTag: v.versionTag,
+          daysOlder: Math.floor((version.latestVersion.modified - v.modified) / 86400),
+        })),
+      totalSavedSpace: version.versions
+        .filter(v => !v.isLatest)
+        .reduce((sum, v) => sum + v.size, 0),
+    }));
+  }
+
+  /**
+   * 识别同一文件的重复版本（基于文件名日期）
+   * 如：报告2024-01.pdf, 报告2024-06.pdf, 报告2025-01.pdf
+   */
+  identifyDatedVersions(files: FileInfo[]): FileVersion[] {
+    // 提取日期模式
+    const datePattern = /(\d{4}[-_]?\d{2}[-_]?\d{2})/;
+    const groups = new Map<string, FileInfo[]>();
+
+    files.forEach(file => {
+      const match = file.name.match(datePattern);
+      if (match) {
+        // 移除日期得到基础名称
+        const baseName = file.name.replace(datePattern, '').trim();
+        const group = groups.get(baseName) || [];
+        group.push(file);
+        groups.set(baseName, group);
+      }
+    });
+
+    // 只返回有多个日期版本的组
+    const result: FileVersion[] = [];
+    groups.forEach((groupFiles, baseName) => {
+      if (groupFiles.length > 1) {
+        // 按修改时间排序
+        groupFiles.sort((a, b) => b.modified - a.modified);
+
+        const versions: VersionInfo[] = groupFiles.map((f, i) => ({
+          path: f.path,
+          name: f.name,
+          modified: f.modified,
+          size: f.size,
+          versionTag: f.name.match(datePattern)?.[1] || '',
+          isLatest: i === 0,
+        }));
+
+        result.push({
+          baseName,
+          versions,
+          latestVersion: versions[0],
+          totalVersions: versions.length,
+        });
+      }
+    });
+
+    return result;
+  }
+
+  /**
    * 计算版本统计信息
    */
   calculateVersionStats(versions: FileVersion[]): {

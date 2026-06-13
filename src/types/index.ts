@@ -78,3 +78,24 @@ export interface ScanConfig {
   includeHidden: boolean;
   maxFileSize: number; // MB
 }
+
+// 保留最新版本计划接口
+export interface KeepLatestPlan {
+  baseName: string;
+  keepFile: {
+    path: string;
+    name: string;
+    size: number;
+    modified: number;
+    versionTag: string;
+  };
+  removeFiles: Array<{
+    path: string;
+    name: string;
+    size: number;
+    modified: number;
+    versionTag: string;
+    daysOlder: number;
+  }>;
+  totalSavedSpace: number;
+}

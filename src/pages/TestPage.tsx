@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { DuplicateGroup, FileVersion, ScanProgress } from '../types';
+import { DuplicateGroup, FileVersion, ScanProgress, KeepLatestPlan } from '../types';
 import {
   generateMockFiles,
   generateMockDuplicateGroups,
@@ -16,8 +16,9 @@ import {
 } from '../mock/realData';
 import { calculateNameSimilarity, detectVersionTag } from '../utils/similarity';
 import { exportTestReport, exportTextReport } from '../utils/reportGenerator';
+import { VersionManager } from '../utils/versionManager';
 
-type TestModule = 'files' | 'similarity' | 'duplicates' | 'versions' | 'hash';
+type TestModule = 'files' | 'similarity' | 'duplicates' | 'versions' | 'keepLatest';
 type DataSource = 'mock' | 'real';
 
 export default function TestPage() {
@@ -26,6 +27,7 @@ export default function TestPage() {
   const [mockFiles, setMockFiles] = useState(generateMockFiles());
   const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([]);
   const [versions, setVersions] = useState<FileVersion[]>([]);
+  const [keepLatestPlans, setKeepLatestPlans] = useState<KeepLatestPlan[]>([]);
   const [progress, setProgress] = useState<ScanProgress | null>(null);
   const [testResults, setTestResults] = useState<string[]>([]);
 
@@ -139,6 +141,51 @@ export default function TestPage() {
     }, 250);
   }, [dataSource, currentFiles]);
 
+  // 生成保留最新版本计划
+  const generateKeepLatestPlan = useCallback(() => {
+    setProgress({
+      currentFile: '正在分析版本...',
+      processedCount: 0,
+      totalCount: 100,
+      percentage: 0,
+      status: 'analyzing',
+    });
+
+    // 模拟扫描进度
+    let progress = 0;
+    const interval = setInterval(() => {
+      progress += 25;
+      const currentIndex = Math.min(Math.floor(progress / 100 * currentFiles.length), currentFiles.length - 1);
+      setProgress({
+        currentFile: currentFiles[currentIndex].name,
+        processedCount: progress,
+        totalCount: 100,
+        percentage: progress,
+        status: 'analyzing',
+      });
+
+      if (progress >= 100) {
+        clearInterval(interval);
+
+        // 获取版本列表
+        const versionList = dataSource === 'real' ? generateRealVersions() : generateMockVersions();
+
+        // 生成保留最新计划
+        const manager = new VersionManager();
+        const plans = manager.generateKeepLatestPlan(versionList);
+        setKeepLatestPlans(plans);
+
+        setProgress({
+          currentFile: '完成',
+          processedCount: 100,
+          totalCount: 100,
+          percentage: 100,
+          status: 'complete',
+        });
+      }
+    }, 250);
+  }, [dataSource, currentFiles]);
+
   // 测试哈希计算（模拟）
   const testHashCalculation = useCallback(() => {
     const results: string[] = ['=== 哈希计算测试 ===\n'];
@@ -217,7 +264,7 @@ export default function TestPage() {
 
       {/* 模块选择 */}
       <div className="flex gap-2 mb-6">
-        {(['files', 'similarity', 'duplicates', 'versions', 'hash'] as TestModule[]).map(module => (
+        {(['files', 'similarity', 'duplicates', 'versions', 'keepLatest'] as TestModule[]).map(module => (
           <button
             key={module}
             onClick={() => setActiveModule(module)}
@@ -231,7 +278,7 @@ export default function TestPage() {
             {module === 'similarity' && '相似度测试'}
             {module === 'duplicates' && '重复检测'}
             {module === 'versions' && '版本比对'}
-            {module === 'hash' && '哈希计算'}
+            {module === 'keepLatest' && '保留最新'}
           </button>
         ))}
       </div>
@@ -458,18 +505,97 @@ export default function TestPage() {
         </div>
       )}
 
-      {/* 哈希计算模块 */}
-      {activeModule === 'hash' && (
+      {/* 保留最新模块 */}
+      {activeModule === 'keepLatest' && (
         <div>
-          <button
-            onClick={testHashCalculation}
-            className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark mb-4"
-          >
-            运行哈希计算测试
-          </button>
-          <pre className="bg-gray-900 text-green-400 p-4 rounded-lg overflow-auto max-h-96">
-            {testResults.join('\n')}
-          </pre>
+          <div className="flex items-center gap-4 mb-4">
+            <button
+              onClick={generateKeepLatestPlan}
+              className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark"
+            >
+              生成保留最新计划
+            </button>
+            <p className="text-sm text-gray-500">
+              自动识别同一文件的不同版本，标记保留最新版本
+            </p>
+          </div>
+
+          {keepLatestPlans.length > 0 && (
+            <>
+              {/* 统计信息 */}
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="bg-white rounded-lg shadow p-4">
+                  <div className="text-sm text-gray-500">版本组数</div>
+                  <div className="text-2xl font-bold text-primary">{keepLatestPlans.length}</div>
+                </div>
+                <div className="bg-white rounded-lg shadow p-4">
+                  <div className="text-sm text-gray-500">待清理文件</div>
+                  <div className="text-2xl font-bold text-orange-500">
+                    {keepLatestPlans.reduce((sum, p) => sum + p.removeFiles.length, 0)}
+                  </div>
+                </div>
+                <div className="bg-white rounded-lg shadow p-4">
+                  <div className="text-sm text-gray-500">可节省空间</div>
+                  <div className="text-2xl font-bold text-green-600">
+                    {currentFormatSize(keepLatestPlans.reduce((sum, p) => sum + p.totalSavedSpace, 0))}
+                  </div>
+                </div>
+              </div>
+
+              {/* 保留最新计划详情 */}
+              <div className="space-y-4">
+                {keepLatestPlans.map((plan, index) => (
+                  <div key={index} className="bg-white rounded-lg shadow overflow-hidden">
+                    <div className="px-4 py-3 bg-blue-50 border-b">
+                      <div className="font-medium text-blue-800">{plan.baseName}</div>
+                      <div className="text-sm text-blue-600">
+                        可节省 {currentFormatSize(plan.totalSavedSpace)}
+                      </div>
+                    </div>
+
+                    {/* 保留的文件 */}
+                    <div className="px-4 py-3 bg-green-50 border-b">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 bg-green-500 text-white text-xs rounded">保留</span>
+                        <span className="font-medium">{plan.keepFile.name}</span>
+                      </div>
+                      <div className="text-sm text-gray-500 mt-1">{plan.keepFile.path}</div>
+                      <div className="text-sm text-gray-500">
+                        大小: {currentFormatSize(plan.keepFile.size)} | 
+                        版本: {plan.keepFile.versionTag}
+                      </div>
+                    </div>
+
+                    {/* 待删除的文件 */}
+                    {plan.removeFiles.map((file, fileIndex) => (
+                      <div key={fileIndex} className="px-4 py-3 border-b last:border-b-0">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 bg-orange-500 text-white text-xs rounded">删除</span>
+                          <span className="font-medium">{file.name}</span>
+                        </div>
+                        <div className="text-sm text-gray-500 mt-1">{file.path}</div>
+                        <div className="text-sm text-gray-500">
+                          大小: {currentFormatSize(file.size)} | 
+                          版本: {file.versionTag} | 
+                          比最新版本早 {file.daysOlder} 天
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* 空状态 */}
+          {keepLatestPlans.length === 0 && progress?.status === 'complete' && (
+            <div className="text-center py-12 text-gray-500">
+              <svg className="w-16 h-16 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-lg">未发现需要清理的旧版本文件</p>
+            </div>
+          )}
         </div>
       )}
     </div>

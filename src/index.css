@@ -1,0 +1,170 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: dark;
+  color: #e2e8f0;
+  background-color: #0a0e17;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: #0a0e17;
+}
+
+/* 暗色科技风全局样式 */
+:root[data-theme='light'] {
+  --bg-main: #ffffff;
+  --bg-card: #ffffff;
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+}
+
+:root[data-theme='dark'] {
+  --bg-main: #0a0e17;
+  --bg-card: #111827;
+  --text-primary: #e2e8f0;
+  --text-secondary: #9ca3af;
+}
+
+/* 主色调 */
+.text-primary { color: #0ea5e9; }
+.bg-primary { background-color: #0ea5e9; }
+.border-primary { border-color: #0ea5e9; }
+.hover\:bg-primary-dark:hover { background-color: #0284c7; }
+.hover\:text-primary-light:hover { color: #38bdf8; }
+
+/* 卡片样式 */
+.card {
+  background-color: #111827;
+  border: 1px solid #1f2937;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  border-color: #0ea5e9;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(14, 165, 233, 0.1);
+}
+
+/* 统计卡片 */
+.stat-card {
+  background-color: #111827;
+  border: 1px solid #1f2937;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  border-color: #0ea5e9;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(14, 165, 233, 0.15);
+}
+
+/* 按钮基础样式 */
+button {
+  cursor: pointer;
+}
+
+/* 输入框 */
+input, select, textarea {
+  background-color: #1f2937;
+  border: 1px solid #374151;
+  color: #e2e8f0;
+  border-radius: 0.5rem;
+  transition: border-color 0.2s;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: #0ea5e9;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2);
+}
+
+/* 表格 */
+table {
+  width: 100%;
+}
+
+th {
+  text-align: left;
+  font-weight: 500;
+  color: #9ca3af;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+}
+
+td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #1f2937;
+}
+
+/* 滚动条样式（科技风） */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0e17;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #374151;
+  border-radius: 20px;
+  border: 2px solid #0a0e17;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #0ea5e9;
+}
+
+/* 动画 */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideIn {
+  from { transform: translateY(-10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+/* 响应式适配 */
+@media (max-width: 1200px) {
+  .container { padding: 0 1.5rem; }
+}
+
+@media (max-width: 900px) {
+  .grid-cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid-cols-2 { grid-template-columns: 1fr; }
+}

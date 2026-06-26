@@ -1,13 +1,13 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Theme, ScanConfig, MatchMode, Page } from './types';
-import Sidebar from './components/Sidebar';
-import FileFingerprintPage from './pages/FileFingerprintPage';
-import DeduplicationPage from './pages/DeduplicationPage';
-import VersionComparePage from './pages/VersionComparePage';
-import TestPage from './pages/TestPage';
-import DataExtractionPage from './pages/DataExtractionPage';
-import Dashboard from './pages/Dashboard';
-import RiskReport from './pages/RiskReport';
+import { Theme, ScanConfig, MatchMode, Page } from './shared/types';
+import Sidebar from './shared/Sidebar';
+import FileFingerprintPage from './deduplication/FileFingerprintPage';
+import DeduplicationPage from './deduplication/DeduplicationPage';
+import VersionComparePage from './deduplication/VersionComparePage';
+import TestPage from './deduplication/TestPage';
+import DataExtractionPage from './extraction/DataExtractionPage';
+import Dashboard from './risk/Dashboard';
+import RiskReport from './risk/RiskReport';
 
 function App() {
   const [theme, setTheme] = useState<Theme>('dark');
@@ -58,7 +58,7 @@ function App() {
       case 'deduplication':
         return <DeduplicationPage config={scanConfig} onUpdateConfig={updateScanConfig} />;
       case 'version':
-        return <VersionComparePage config={scanConfig} />;
+        return <VersionComparePage />;
       case 'test':
         return <TestPage />;
       case 'extraction':

@@ -421,6 +421,77 @@ export class DatabaseService {
   }
 
   /**
+   * 【Sprint 1 新增】检查是否有提取的字段数据
+   */
+  async hasExtractedFields(): Promise<boolean> {
+    if (!this.db) throw new Error('数据库未初始化');
+    try {
+      const result = await this.db.select<{ count: number }[]>('SELECT COUNT(*) as count FROM extracted_fields');
+      return result.length > 0 && result[0].count > 0;
+    } catch (error) {
+      console.error('[DatabaseService] 检查extracted_fields失败:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 【Sprint 4 新增】获取文件哈希缓存
+   */
+  async getFileHash(filePath: string, modified: number, size: number): Promise<string | null> {
+    if (!this.db) throw new Error('数据库未初始化');
+    try {
+      const result = await this.db.select<{ file_hash: string }[]>(
+        'SELECT file_hash FROM files WHERE file_path = $1 AND modified_time = $2 AND file_size = $3 AND file_hash IS NOT NULL',
+        [filePath, new Date(modified * 1000).toISOString(), size]
+      );
+      return result.length > 0 ? result[0].file_hash : null;
+    } catch (error) {
+      console.error('[DatabaseService] 获取哈希缓存失败:', error);
+      return null;
+    }
+  }
+
+  /**
+   * 【Sprint 4 新增】保存文件哈希到缓存
+   */
+  async saveFileHash(filePath: string, modified: number, size: number, hash: string): Promise<void> {
+    if (!this.db) throw new Error('数据库未初始化');
+    try {
+      await this.db.execute(
+        `INSERT INTO files (file_path, file_name, file_size, modified_time, file_hash, status)
+         VALUES ($1, $2, $3, $4, $5, 'pending')
+         ON CONFLICT(file_path) DO UPDATE SET
+           file_hash = $5,
+           modified_time = $4,
+           file_size = $3,
+           updated_at = datetime('now')`,
+        [
+          filePath,
+          filePath.split(/[/\\]/).pop() || 'unknown',
+          size,
+          new Date(modified * 1000).toISOString(),
+          hash
+        ]
+      );
+    } catch (error) {
+      console.error('[DatabaseService] 保存哈希缓存失败:', error);
+    }
+  }
+
+  /**
+   * 【Sprint 5 新增】获取所有合同数据
+   */
+  async getContracts(): Promise<any[]> {
+    if (!this.db) throw new Error('数据库未初始化');
+    try {
+      return await this.db.select('SELECT * FROM contracts ORDER BY created_at DESC');
+    } catch (error) {
+      console.error('[DatabaseService] 获取合同数据失败:', error);
+      return [];
+    }
+  }
+
+  /**
    * 关闭数据库连接
    */
   async close(): Promise<void> {

@@ -71,3 +71,40 @@ export function usePolling({ interval, callback, enabled = true }: UsePollingOpt
 
   return { start, stop, isPolling };
 }
+
+/**
+ * 【Sprint 6 新增】智能轮询Hook - 自动触发ETL
+ * 检测到新文件时自动运行ETL聚合并刷新数据
+ */
+export function useSmartPolling(options: UsePollingOptions & { 
+  onNewData?: () => Promise<void>;
+  autoETL?: boolean;
+}) {
+  const { onNewData, autoETL = true, ...pollingOptions } = options;
+  
+  const enhancedCallback = useCallback(async () => {
+    // 执行原始回调
+    await pollingOptions.callback();
+    
+    // 如果检测到新数据且启用自动ETL
+    if (autoETL && onNewData) {
+      console.log('[SmartPolling] 检测到新数据，触发ETL聚合...');
+      try {
+        // 动态导入ETL模块
+        const { aggregateToProjects } = await import('../shared/etl');
+        await aggregateToProjects();
+        console.log('[SmartPolling] ETL聚合完成');
+        
+        // 触发数据刷新回调
+        await onNewData();
+      } catch (err) {
+        console.error('[SmartPolling] ETL聚合失败:', err);
+      }
+    }
+  }, [pollingOptions.callback, autoETL, onNewData]);
+  
+  return usePolling({
+    ...pollingOptions,
+    callback: enhancedCallback,
+  });
+}

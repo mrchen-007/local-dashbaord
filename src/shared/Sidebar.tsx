@@ -27,6 +27,15 @@ const menuItems = [
     ),
   },
   {
+    id: 'data-network' as Page,
+    label: '数据网',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+      </svg>
+    ),
+  },
+  {
     id: 'deduplication' as Page,
     label: '文件去重',
     icon: (
@@ -84,7 +93,7 @@ export default function Sidebar({ currentPage, theme, onNavigate, onToggleTheme 
       <nav className="flex-1 px-4">
         {/* 监控管理分组 */}
         <div className="text-xs text-gray-500 uppercase tracking-wider px-3 mb-2 mt-2">监控管理</div>
-        {menuItems.filter(m => ['dashboard', 'risk-report'].includes(m.id)).map(item => (
+        {menuItems.filter(m => ['dashboard', 'risk-report', 'data-network'].includes(m.id)).map(item => (
           <button
             key={item.id}
             onClick={() => onNavigate(item.id)}
@@ -103,7 +112,7 @@ export default function Sidebar({ currentPage, theme, onNavigate, onToggleTheme 
 
         {/* 文件工具分组 */}
         <div className="text-xs text-gray-500 uppercase tracking-wider px-3 mb-2 mt-6">文件工具</div>
-        {menuItems.filter(m => !['dashboard', 'risk-report'].includes(m.id)).map(item => (
+        {menuItems.filter(m => !['dashboard', 'risk-report', 'data-network'].includes(m.id)).map(item => (
           <button
             key={item.id}
             onClick={() => onNavigate(item.id)}

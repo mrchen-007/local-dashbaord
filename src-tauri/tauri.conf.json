@@ -63,9 +63,6 @@
         "minWidth": 800,
         "minHeight": 600
       }
-    ],
-    "sql": {
-      "preload": ["sql/init.sql"]
-    }
+    ]
   }
 }

@@ -8,6 +8,7 @@ import TestPage from './deduplication/TestPage';
 import DataExtractionPage from './extraction/DataExtractionPage';
 import Dashboard from './risk/Dashboard';
 import RiskReport from './risk/RiskReport';
+import DataNetwork from './risk/DataNetwork';
 
 function App() {
   const [theme, setTheme] = useState<Theme>('dark');
@@ -65,6 +66,8 @@ function App() {
         return <DataExtractionPage />;
       case 'risk-report':
         return <RiskReport projectId={selectedProjectId} />;
+      case 'data-network':
+        return <DataNetwork />;
       default:
         return <Dashboard />;
     }

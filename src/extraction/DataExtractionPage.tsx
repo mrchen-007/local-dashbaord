@@ -6,6 +6,8 @@ import { open } from '@tauri-apps/api/dialog';
 import { fileParserService, FileManifest, ParseResult } from './fileParser';
 import { entityExtractorService, ExtractionResult } from './entityExtractor';
 import { databaseService, ProcessingStats } from '../shared/database';
+import { mapUIEFieldsToDB } from './fieldMapper';
+import { isTauri } from '../shared/environment';
 
 type ProcessingStage = 'idle' | 'loading' | 'parsing' | 'extracting' | 'saving' | 'complete' | 'error';
 
@@ -129,6 +131,28 @@ export default function DataExtractionPage() {
           content_text: JSON.stringify(r.fields),
           parse_duration_ms: r.duration_ms,
         });
+
+        const mappedFields = mapUIEFieldsToDB(r.fields);
+        if (Object.keys(mappedFields).length > 0) {
+          await databaseService.saveExtractedFields({
+            file_id: fileId,
+            file_path: r.file_path,
+            contract_no: mappedFields.contract_no as string,
+            contract_amount: mappedFields.contract_amount as number,
+            party_a: mappedFields.party_a as string,
+            party_b: mappedFields.party_b as string,
+            sign_date: mappedFields.sign_date as string,
+            labor_cost: mappedFields.labor_cost as number,
+            material_cost: mappedFields.material_cost as number,
+            equipment_cost: mappedFields.equipment_cost as number,
+            subcontract_amount: mappedFields.subcontract_amount as number,
+            settlement_amount: mappedFields.settlement_amount as number,
+            settlement_date: mappedFields.settlement_date as string,
+            warranty_ratio: mappedFields.warranty_ratio as number,
+            extraction_duration_ms: r.duration_ms,
+            confidence_score: r.confidence,
+          });
+        }
       } catch (err) {
         console.warn(`保存失败: ${extractResults[i].file_path}`, err);
       }
@@ -149,6 +173,20 @@ export default function DataExtractionPage() {
       <p className="text-gray-400 mb-6">
         从文件清单中解析文档内容，使用 AI 抽取关键字段并存入数据库
       </p>
+
+      {!isTauri() && (
+        <div className="card mb-6 border-amber-500 bg-amber-900/20">
+          <div className="flex items-center gap-3">
+            <svg className="w-6 h-6 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            <div>
+              <p className="text-amber-400 font-medium">当前为浏览器环境，数据提取功能需在 Tauri 桌面环境中运行</p>
+              <p className="text-amber-500 text-sm mt-1">请执行 <code className="bg-amber-900/50 px-2 py-0.5 rounded">npm run tauri dev</code> 启动桌面应用</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 文件夹选择 */}
       <div className="card mb-6">

@@ -200,4 +200,4 @@ export interface DashboardStats {
 }
 
 // 页面类型扩展
-export type Page = 'dashboard' | 'fingerprint' | 'deduplication' | 'version' | 'test' | 'extraction' | 'risk-report';
+export type Page = 'dashboard' | 'fingerprint' | 'deduplication' | 'version' | 'test' | 'extraction' | 'risk-report' | 'data-network';

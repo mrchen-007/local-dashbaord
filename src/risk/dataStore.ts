@@ -1,11 +1,11 @@
-// Zustand 全局状态管理
+﻿// Zustand 全局状态管理
 // 管理项目数据、风险结果和加载状态
 // 使用 zustand 库实现
-
 import { create } from 'zustand';
 import { Project, RiskResult } from '../shared/types';
 import { calculateRisks, aggregateRiskStats } from './riskEngine';
 import { databaseService } from '../shared/database';
+import { aggregateToProjects } from '../shared/etl';
 
 interface DataStoreState {
   projects: Project[];
@@ -132,27 +132,66 @@ export const useDataStore = create<DataStoreState>((set, get) => ({
     try {
       let projects: Project[];
 
-      // 尝试从数据库获取，如果失败则使用模拟数据
+      // 【Sprint 1 优化】增强数据获取逻辑：优先真实数据，智能fallback
       try {
-        // 检查 Tauri 环境
         if (typeof window !== 'undefined' && (window as any).__TAURI_IPC__) {
+          console.log('[DataStore] Tauri环境检测通过，初始化数据库...');
           await databaseService.initialize();
-          const dbProjects = await databaseService.getProjects();
-          if (dbProjects && dbProjects.length > 0) {
-            projects = dbProjects;
+          
+          // 先检查projects表是否有数据
+          const existingProjects = await databaseService.getProjects();
+          
+          if (existingProjects && existingProjects.length > 0) {
+            console.log(`[DataStore] ✓ 从projects表加载 ${existingProjects.length} 条记录`);
+            projects = existingProjects;
           } else {
-            projects = generateMockProjects();
+            console.log('[DataStore] projects表为空，尝试运行ETL聚合...');
+            
+            try {
+              await aggregateToProjects();
+              console.log('[DataStore] ✓ ETL聚合完成');
+            } catch (etlError) {
+              console.warn('[DataStore] ✗ ETL聚合失败:', etlError);
+            }
+            
+            const afterETL = await databaseService.getProjects();
+            
+            if (afterETL && afterETL.length > 0) {
+              console.log(`[DataStore] ✓ ETL后获取到 ${afterETL.length} 条项目数据`);
+              projects = afterETL;
+            } else {
+              console.warn('[DataStore] ETL后仍无数据，检查extracted_fields表...');
+              
+              try {
+                const hasExtractedData = await databaseService.hasExtractedFields();
+                if (!hasExtractedData) {
+                  console.warn('[DataStore] ⚠ extracted_fields表也为空，请先运行数据提取流程');
+                }
+              } catch (checkError) {
+                console.warn('[DataStore] 无法检查extracted_fields表:', checkError);
+              }
+              
+              console.warn('[DataStore] ⚠ 回退到模拟数据');
+              projects = generateMockProjects();
+            }
           }
         } else {
+          console.log('[DataStore] 非Tauri环境，使用模拟数据');
           projects = generateMockProjects();
         }
-      } catch {
+      } catch (dbError) {
+        console.error('[DataStore] ✗ 数据库加载失败:', dbError);
+        set({ error: `数据库错误: ${dbError}` });
         projects = generateMockProjects();
       }
 
+      console.log(`[DataStore] 最终加载 ${projects.length} 个项目`);
+      
       // 计算风险
       const riskResults = calculateRisks(projects);
       const stats = aggregateRiskStats(riskResults);
+      
+      console.log(`[DataStore] 风险统计: 高=${stats.highRiskCount}, 中=${stats.mediumRiskCount}, 低=${stats.lowRiskCount}`);
 
       set({
         projects,

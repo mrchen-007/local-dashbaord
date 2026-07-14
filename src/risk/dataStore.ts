@@ -30,7 +30,7 @@ interface DataStoreState {
 /**
  * 生成模拟项目数据（用于前端展示和测试）
  */
-function generateMockProjects(): Project[] {
+export function generateMockProjects(): Project[] {
   const mockProjects: Project[] = [
     {
       id: 'P001', name: '沙河二中改扩建工程', contractNo: 'HT-2024-001',
@@ -171,18 +171,16 @@ export const useDataStore = create<DataStoreState>((set, get) => ({
                 console.warn('[DataStore] 无法检查extracted_fields表:', checkError);
               }
               
-              console.warn('[DataStore] ⚠ 回退到模拟数据');
-              projects = generateMockProjects();
+              projects = [];
             }
           }
         } else {
-          console.log('[DataStore] 非Tauri环境，使用模拟数据');
-          projects = generateMockProjects();
+          throw new Error('数据看板需要在 Tauri 桌面环境中使用');
         }
       } catch (dbError) {
         console.error('[DataStore] ✗ 数据库加载失败:', dbError);
         set({ error: `数据库错误: ${dbError}` });
-        projects = generateMockProjects();
+        projects = [];
       }
 
       console.log(`[DataStore] 最终加载 ${projects.length} 个项目`);

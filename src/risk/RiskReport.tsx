@@ -6,6 +6,7 @@ import { useDataStore } from './dataStore';
 import { RiskLevel } from '../shared/types';
 import { downloadRiskReport } from './docxReport';
 import * as XLSX from 'xlsx';
+import FieldSourcePanel from './FieldSourcePanel';
 
 const RISK_LABELS: Record<RiskLevel, string> = {
   high: '高风险',
@@ -212,6 +213,7 @@ export default function RiskReport({ projectId }: RiskReportProps) {
                       </div>
                     ))}
                   </div>
+                  <FieldSourcePanel projectName={risk.projectName} />
                 </div>
               )}
             </div>

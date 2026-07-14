@@ -1,60 +1,68 @@
 import { useState, useCallback } from 'react';
 import { FileVersion, ScanProgress } from '../shared/types';
-import { VersionManager, formatTimestamp, getTimeDifference } from './versionManager';
-import { formatFileSize } from './deduplication';
+import { VersionManager, getTimeDifference } from './versionManager';
+import { formatFileSize, formatTimestamp } from '../shared/format';
 import { exportVersionReport } from '../shared/export';
-import { generateMockFiles } from './mockData';
+import { scanDirectory } from '../api/tauriApi';
+import { isTauri } from '../shared/environment';
+import { open } from '@tauri-apps/api/dialog';
 
 export default function VersionComparePage() {
   const [versions, setVersions] = useState<FileVersion[]>([]);
   const [progress, setProgress] = useState<ScanProgress | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [showTimeline, setShowTimeline] = useState(true);
+  const [folderPath, setFolderPath] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const selectFolder = useCallback(async () => {
+    if (!isTauri()) {
+      setError('版本比对需要在 Tauri 桌面环境中选择真实目录。');
+      return;
+    }
+    const selected = await open({ directory: true, multiple: false, title: '选择要分析版本的文件夹' });
+    if (typeof selected === 'string') {
+      setFolderPath(selected);
+      setError(null);
+      setVersions([]);
+    }
+  }, []);
 
   const startScan = useCallback(async () => {
+    if (!folderPath) {
+      setError('请先选择要分析的文件夹。');
+      return;
+    }
     setIsScanning(true);
     setVersions([]);
+    setError(null);
 
     setProgress({
-      currentFile: '正在加载模拟数据...',
+      currentFile: '正在扫描真实文件...',
       processedCount: 0,
       totalCount: 100,
       percentage: 10,
       status: 'scanning',
     });
 
-    // 模拟扫描延迟
-    await new Promise(r => setTimeout(r, 500));
-
-    const files = generateMockFiles();
-    
-    setProgress({
-      currentFile: `共 ${files.length} 个文件，正在分析版本...`,
-      processedCount: 50,
-      totalCount: 100,
-      percentage: 50,
-      status: 'hashing',
-    });
-
-    // 使用版本管理器分析版本
-    const vm = new VersionManager(files);
-    const versionResults = vm.analyzeVersions();
-
-    // 也可以使用预生成的版本数据
-    // const versionResults = generateMockVersions();
-
-    setVersions(versionResults);
-
-    setProgress({
-      currentFile: '',
-      processedCount: 100,
-      totalCount: 100,
-      percentage: 100,
-      status: 'complete',
-    });
-
-    setIsScanning(false);
-  }, []);
+    try {
+      const result = await scanDirectory(folderPath, true);
+      setProgress({
+        currentFile: `共 ${result.files.length} 个文件，正在分析版本...`,
+        processedCount: 50,
+        totalCount: 100,
+        percentage: 50,
+        status: 'hashing',
+      });
+      setVersions(new VersionManager(result.files).analyzeVersions());
+      setProgress({ currentFile: '', processedCount: 100, totalCount: 100, percentage: 100, status: 'complete' });
+    } catch (scanError) {
+      setError(`版本分析失败：${scanError instanceof Error ? scanError.message : String(scanError)}`);
+      setProgress({ currentFile: '', processedCount: 0, totalCount: 100, percentage: 0, status: 'error' });
+    } finally {
+      setIsScanning(false);
+    }
+  }, [folderPath]);
 
   const handleExport = useCallback(() => {
     if (versions.length > 0) {
@@ -76,6 +84,14 @@ export default function VersionComparePage() {
 
       <div className="card mb-6">
         <div className="flex items-center gap-4 mb-4">
+          <button
+            onClick={selectFolder}
+            disabled={isScanning}
+            className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 disabled:opacity-50"
+          >
+            选择文件夹
+          </button>
+          <span className="text-sm text-gray-400 truncate flex-1">{folderPath || '尚未选择文件夹'}</span>
           <button
             onClick={startScan}
             disabled={isScanning}
@@ -135,6 +151,8 @@ export default function VersionComparePage() {
           </div>
         )}
       </div>
+
+      {error && <div className="card mb-6 border-red-500 text-red-400">{error}</div>}
 
       {versions.length > 0 && (
         <div className="space-y-6">

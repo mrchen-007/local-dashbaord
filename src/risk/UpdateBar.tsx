@@ -2,9 +2,10 @@
 // 当检测到新数据时显示在页面顶部
 // 点击"立即同步"触发刷新
 
+import { memo } from 'react';
 import { useDataStore } from './dataStore';
 
-export default function UpdateBar() {
+const UpdateBar = memo(function UpdateBar() {
   const { hasNewData, lastUpdate, refreshData, isLoading } = useDataStore();
 
   if (!hasNewData) return null;
@@ -33,4 +34,6 @@ export default function UpdateBar() {
       </button>
     </div>
   );
-}
+});
+
+export default UpdateBar;

@@ -1,8 +1,11 @@
 import { useState, useCallback, useRef } from 'react';
 import { ScanConfig, DuplicateGroup, MatchMode, ScanProgress, FileInfo } from '../shared/types';
-import { DeduplicationEngine, formatFileSize, calculateDuplicateRate } from './deduplication';
+import { DeduplicationEngine, calculateDuplicateRate } from './deduplication';
+import { formatFileSize } from '../shared/format';
 import { exportDuplicateReport } from '../shared/export';
 import { databaseService } from '../shared/database';
+import ProgressBar from '../shared/ProgressBar';
+import { moveToBackup, updateFileManifest } from '../api/tauriApi';
 
 // 检测是否在 Tauri 桌面环境中运行
 const isTauri = () => typeof window !== 'undefined' && (window as any).__TAURI_IPC__ !== undefined;
@@ -173,28 +176,24 @@ export default function DeduplicationPage({ config, onUpdateConfig }: Deduplicat
 
         try {
           await databaseService.initialize();
-          for (let i = 0; i < files.length; i++) {
-            const f = files[i];
-            const modTime = new Date(f.modified * 1000).toISOString();
-            await databaseService.upsertFile({
-              file_path: f.path,
-              file_name: f.name,
-              file_size: f.size,
-              modified_time: modTime,
-              file_hash: '',
-              status: 'pending',
-            });
+          const fileRecords = files.map(f => ({
+            file_path: f.path,
+            file_name: f.name,
+            file_size: f.size,
+            modified_time: new Date(f.modified * 1000).toISOString(),
+            file_hash: '',
+            status: 'pending' as const,
+          }));
 
-            if (i % 10 === 0) {
-              setProgress({
-                currentFile: `保存文件记录 ${i + 1}/${files.length}...`,
-                processedCount: 90 + Math.round((i / files.length) * 5),
-                totalCount: 100,
-                percentage: 90 + Math.round((i / files.length) * 5),
-                status: 'hashing',
-              });
-            }
-          }
+          setProgress({
+            currentFile: '正在保存文件记录到数据库...',
+            processedCount: 90,
+            totalCount: 100,
+            percentage: 90,
+            status: 'hashing',
+          });
+
+          await databaseService.batchUpsertFiles(fileRecords);
           console.log(`已保存 ${files.length} 条文件记录到数据库`);
         } catch (dbErr) {
           console.error('写入数据库失败:', dbErr);
@@ -202,15 +201,10 @@ export default function DeduplicationPage({ config, onUpdateConfig }: Deduplicat
 
         // === 更新 file_manifest.json 中的哈希值（仅 Tauri 模式） ===
         try {
-          const { invoke } = await import('@tauri-apps/api/tauri');
           for (const group of groups) {
             for (const file of group.files) {
               if (file.hash) {
-                await invoke('update_file_manifest', {
-                  folderPath: scanPath,
-                  filePath: file.path,
-                  hash: file.hash,
-                });
+                await updateFileManifest(scanPath, file.path, file.hash);
               }
             }
           }
@@ -277,12 +271,12 @@ export default function DeduplicationPage({ config, onUpdateConfig }: Deduplicat
 
       if (filesToBackup.length > 0) {
         if (isTauri()) {
-          const { invoke } = await import('@tauri-apps/api/tauri');
-          await invoke('move_to_backup', {
-            files: filesToBackup,
-            backupDir: `${scanPath}/.backup_${Date.now()}`,
-          });
-          console.log('已移动文件到备份:', filesToBackup.length);
+          const result = await moveToBackup(filesToBackup, `${scanPath}/.backup_${Date.now()}`);
+          const failed = result.items.filter(item => item.status !== 'succeeded');
+          if (failed.length > 0) {
+            throw new Error(`${failed.length} 个文件未能安全备份：${failed[0].error || '未知错误'}`);
+          }
+          console.log('已移动文件到备份:', result.items.length);
         } else {
           console.log('浏览器模式跳过备份操作，待移动文件:', filesToBackup.length);
         }
@@ -381,18 +375,11 @@ export default function DeduplicationPage({ config, onUpdateConfig }: Deduplicat
 
       {/* 进度条 */}
       {progress && progress.status !== 'complete' && progress.status !== 'error' && (
-        <div className="card mb-6">
-          <div className="flex justify-between text-sm mb-2">
-            <span className="text-gray-400 truncate">{progress.currentFile}</span>
-            <span className="text-gray-400">{Math.round(progress.percentage)}%</span>
-          </div>
-          <div className="w-full bg-gray-700 rounded-full h-2">
-            <div
-              className="bg-primary h-2 rounded-full transition-all"
-              style={{ width: `${progress.percentage}%` }}
-            />
-          </div>
-        </div>
+        <ProgressBar
+          current={progress.percentage}
+          total={100}
+          message={progress.currentFile}
+        />
       )}
 
       {/* 统计信息 */}

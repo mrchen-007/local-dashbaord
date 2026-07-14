@@ -2,17 +2,14 @@
 // 从 extracted_fields 聚合数据到 projects 表
 // 打通数据流，替代 mockData
 
-import { invoke } from '@tauri-apps/api/tauri';
-import { mapUIEFieldsToDB } from '../extraction/fieldMapper';
-
-const DB_URL = 'sqlite:dedup_tool.db';
+import { dbExecute as executeSql, dbSelect as selectSql } from '../api/tauriApi';
 
 async function dbExecute(query: string, values?: unknown[]): Promise<void> {
-  await invoke('plugin:sql|execute', { db: DB_URL, query, values });
+  await executeSql(query, values);
 }
 
 async function dbSelect<T>(query: string, values?: unknown[]): Promise<T[]> {
-  return await invoke<T[]>('plugin:sql|select', { db: DB_URL, query, values });
+  return await selectSql<T>(query, values);
 }
 
 function extractProjectName(filePath: string): string {
@@ -23,169 +20,76 @@ function extractProjectName(filePath: string): string {
   return parts[0] || '未知项目';
 }
 
-export async function aggregateToProjects(): Promise<void> {
-  await dbExecute(`
-    CREATE TABLE IF NOT EXISTS projects (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      path TEXT,
-      contract_no TEXT,
-      contract_amount REAL DEFAULT 0,
-      total_cost REAL DEFAULT 0,
-      labor_cost REAL DEFAULT 0,
-      material_cost REAL DEFAULT 0,
-      equipment_cost REAL DEFAULT 0,
-      subcontract_amount REAL DEFAULT 0,
-      settlement_amount REAL DEFAULT 0,
-      settlement_date TEXT,
-      total_paid REAL DEFAULT 0,
-      estimated_profit_rate REAL DEFAULT 0,
-      actual_profit_rate REAL DEFAULT 0,
-      planned_end_date TEXT,
-      progress_percent REAL DEFAULT 0,
-      warranty_ratio REAL DEFAULT 0,
-      warranty_due_date TEXT,
-      risk_level TEXT DEFAULT 'low',
-      scan_time TEXT DEFAULT (datetime('now')),
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
-    )
-  `);
+export async function aggregateToProjects(lastSyncTime?: string): Promise<string> {
+  // 表结构已在 database.ts createTables() 中创建（以 migrations/001_init.sql 为权威）
+  // 这里只做数据聚合，不重复建表
 
-  await dbExecute(`
-    CREATE TABLE IF NOT EXISTS contracts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      project_id INTEGER,
-      contract_no TEXT,
-      amount REAL,
-      party_a TEXT,
-      party_b TEXT,
-      sign_date TEXT,
-      file_path TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (project_id) REFERENCES projects(id)
-    )
-  `);
-
-  await dbExecute(`
-    CREATE TABLE IF NOT EXISTS cost_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      project_id INTEGER,
-      cost_type TEXT,
-      amount REAL,
-      supplier TEXT,
-      file_path TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (project_id) REFERENCES projects(id)
-    )
-  `);
-
-  await dbExecute(`
-    CREATE TABLE IF NOT EXISTS settlements (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      project_id INTEGER,
-      settle_date TEXT,
-      amount REAL,
-      paid_amount REAL DEFAULT 0,
-      retention REAL DEFAULT 0,
-      file_path TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (project_id) REFERENCES projects(id)
-    )
-  `);
-
-  await dbExecute(`
-    CREATE TABLE IF NOT EXISTS payments (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      project_id INTEGER,
-      payment_date TEXT,
-      amount REAL,
-      payment_type TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (project_id) REFERENCES projects(id)
-    )
-  `);
-
-  await dbExecute(`
-    CREATE TABLE IF NOT EXISTS subcontractors (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      project_id INTEGER,
-      name TEXT,
-      amount REAL,
-      ratio REAL,
-      created_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (project_id) REFERENCES projects(id)
-    )
-  `);
-
-  await dbExecute(`
-    CREATE TABLE IF NOT EXISTS schedules (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      project_id INTEGER,
-      milestone TEXT,
-      plan_date TEXT,
-      actual_date TEXT,
-      progress REAL,
-      created_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (project_id) REFERENCES projects(id)
-    )
-  `);
-
-  await dbExecute('DELETE FROM projects');
-  await dbExecute('DELETE FROM contracts');
-  await dbExecute('DELETE FROM cost_items');
-  await dbExecute('DELETE FROM settlements');
-
-  let extractedData = await dbSelect<any>(`
-    SELECT ef.file_path, ef.contract_no, ef.contract_amount, ef.party_a, ef.party_b, ef.sign_date,
-           ef.labor_cost, ef.material_cost, ef.equipment_cost, ef.subcontract_amount,
-           ef.settlement_amount, ef.settlement_date, ef.warranty_ratio
-    FROM extracted_fields ef
-    WHERE ef.contract_amount IS NOT NULL OR ef.labor_cost IS NOT NULL 
-       OR ef.material_cost IS NOT NULL OR ef.settlement_amount IS NOT NULL
-  `);
-
-  if (extractedData.length === 0) {
-    console.log('extracted_fields 为空，尝试从 parsed_contents 回退解析...');
-    const parsedContents = await dbSelect<any>(
-      'SELECT file_path, content_text FROM parsed_contents WHERE content_text IS NOT NULL'
+  // 增量模式：只删除受影响的项目数据
+  if (lastSyncTime) {
+    // 获取本次需要处理的文件路径
+    const affectedPaths = await dbSelect<{ file_path: string }>(
+      `SELECT DISTINCT file_path FROM extracted_fields WHERE extracted_at > $1`,
+      [lastSyncTime]
     );
-    
-    if (parsedContents.length > 0) {
-      extractedData = [];
-      for (const pc of parsedContents) {
-        try {
-          const fields = JSON.parse(pc.content_text);
-          if (fields && typeof fields === 'object') {
-            const mappedFields = mapUIEFieldsToDB(fields);
-            if (Object.keys(mappedFields).length > 0) {
-              extractedData.push({
-                file_path: pc.file_path,
-                contract_no: mappedFields.contract_no || null,
-                contract_amount: mappedFields.contract_amount || null,
-                party_a: mappedFields.party_a || null,
-                party_b: mappedFields.party_b || null,
-                sign_date: mappedFields.sign_date || null,
-                labor_cost: mappedFields.labor_cost || null,
-                material_cost: mappedFields.material_cost || null,
-                equipment_cost: mappedFields.equipment_cost || null,
-                subcontract_amount: mappedFields.subcontract_amount || null,
-                settlement_amount: mappedFields.settlement_amount || null,
-                settlement_date: mappedFields.settlement_date || null,
-                warranty_ratio: mappedFields.warranty_ratio || null,
-              });
-            }
-          }
-        } catch (e) {
-          console.warn(`解析 parsed_contents JSON 失败: ${pc.file_path}`, e);
-        }
-      }
+
+    if (affectedPaths.length === 0) {
+      console.log('无新数据需要聚合');
+      return lastSyncTime;
     }
+
+    // 获取受影响的项目名称
+    const affectedProjects = new Set<string>();
+    for (const p of affectedPaths) {
+      affectedProjects.add(extractProjectName(p.file_path));
+    }
+    
+    // 只删除受影响的项目相关数据
+    for (const projectName of affectedProjects) {
+      await dbExecute(`DELETE FROM payments WHERE project_id IN (SELECT id FROM projects WHERE name = $1)`, [projectName]);
+      await dbExecute(`DELETE FROM subcontractors WHERE project_id IN (SELECT id FROM projects WHERE name = $1)`, [projectName]);
+      await dbExecute(`DELETE FROM schedules WHERE project_id IN (SELECT id FROM projects WHERE name = $1)`, [projectName]);
+      await dbExecute(`DELETE FROM settlements WHERE project_id IN (SELECT id FROM projects WHERE name = $1)`, [projectName]);
+      await dbExecute(`DELETE FROM cost_items WHERE project_id IN (SELECT id FROM projects WHERE name = $1)`, [projectName]);
+      await dbExecute(`DELETE FROM contracts WHERE project_id IN (SELECT id FROM projects WHERE name = $1)`, [projectName]);
+      await dbExecute(`DELETE FROM projects WHERE name = $1`, [projectName]);
+    }
+  } else {
+    // 全量模式：清空所有数据
+    await dbExecute('DELETE FROM payments');
+    await dbExecute('DELETE FROM subcontractors');
+    await dbExecute('DELETE FROM schedules');
+    await dbExecute('DELETE FROM settlements');
+    await dbExecute('DELETE FROM cost_items');
+    await dbExecute('DELETE FROM contracts');
+    await dbExecute('DELETE FROM projects');
   }
 
+  const timeCondition = lastSyncTime ? 'AND fo.reviewed_at > $1' : '';
+
+  let extractedData = await dbSelect<any>(`
+    SELECT fo.file_path,
+           MAX(CASE WHEN fo.field_key = 'contract_no' THEN fo.normalized_value END) AS contract_no,
+           MAX(CASE WHEN fo.field_key = 'contract_amount' THEN CAST(fo.normalized_value AS REAL) END) AS contract_amount,
+           MAX(CASE WHEN fo.field_key = 'party_a' THEN fo.normalized_value END) AS party_a,
+           MAX(CASE WHEN fo.field_key = 'party_b' THEN fo.normalized_value END) AS party_b,
+           MAX(CASE WHEN fo.field_key = 'sign_date' THEN fo.normalized_value END) AS sign_date,
+           MAX(CASE WHEN fo.field_key = 'labor_cost' THEN CAST(fo.normalized_value AS REAL) END) AS labor_cost,
+           MAX(CASE WHEN fo.field_key = 'material_cost' THEN CAST(fo.normalized_value AS REAL) END) AS material_cost,
+           MAX(CASE WHEN fo.field_key = 'equipment_cost' THEN CAST(fo.normalized_value AS REAL) END) AS equipment_cost,
+           MAX(CASE WHEN fo.field_key = 'subcontract_amount' THEN CAST(fo.normalized_value AS REAL) END) AS subcontract_amount,
+           MAX(CASE WHEN fo.field_key = 'settlement_amount' THEN CAST(fo.normalized_value AS REAL) END) AS settlement_amount,
+           MAX(CASE WHEN fo.field_key = 'settlement_date' THEN fo.normalized_value END) AS settlement_date,
+           MAX(CASE WHEN fo.field_key = 'warranty_ratio' THEN CAST(fo.normalized_value AS REAL) END) AS warranty_ratio,
+           MAX(fo.reviewed_at) AS extracted_at
+    FROM field_observations fo
+    WHERE fo.review_status = 'confirmed'
+    ${timeCondition}
+    GROUP BY fo.file_path
+  `, lastSyncTime ? [lastSyncTime] : []);
+
   if (extractedData.length === 0) {
-    console.log('没有可聚合的抽取数据');
-    return;
+    console.log('没有已确认的字段数据可聚合');
+    return lastSyncTime || new Date().toISOString();
   }
 
   const projectMap = new Map<string, any[]>();
@@ -270,4 +174,10 @@ export async function aggregateToProjects(): Promise<void> {
   }
 
   console.log(`聚合完成: ${projectMap.size} 个项目`);
+
+  // 返回最新的 extracted_at 时间戳
+  const latestResult = await dbSelect<{ latest: string }>(
+    `SELECT MAX(extracted_at) as latest FROM extracted_fields`
+  );
+  return latestResult[0]?.latest || new Date().toISOString();
 }

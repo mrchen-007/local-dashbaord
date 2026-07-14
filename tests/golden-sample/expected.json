@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "status": "awaiting-sanitized-sample",
+  "notes": "在引入脱敏真实样本后填写 files、projects 与 confirmed_fields。",
+  "files": {
+    "total": null,
+    "duplicates": null,
+    "parse_success_min": null
+  },
+  "projects": {
+    "count": null
+  },
+  "confirmed_fields": []
+}

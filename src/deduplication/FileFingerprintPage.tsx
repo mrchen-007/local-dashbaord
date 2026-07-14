@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { ScanConfig, FileInfo, ScanProgress } from '../shared/types';
 import { calculateSHA256 } from './hash';
-import { formatFileSize } from './deduplication';
+import { formatFileSize } from '../shared/format';
 
 interface FileFingerprintPageProps {
   config: ScanConfig;

@@ -4,6 +4,7 @@
 import * as XLSX from 'xlsx';
 import { DuplicateGroup, FileVersion, FileInfo } from '../shared/types';
 import { calculateNameSimilarity, detectVersionTag } from './similarity';
+import { formatFileSize, formatTimestamp } from '../shared/format';
 
 interface SimilarityDetail {
   file1: string;
@@ -38,33 +39,6 @@ interface VersionReport {
     isLatest: boolean;
   }>;
   latestVersion: string;
-}
-
-/**
- * 格式化文件大小
- */
-function formatSize(bytes: number): string {
-  const units = ['B', 'KB', 'MB', 'GB'];
-  let size = bytes;
-  let unitIndex = 0;
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024;
-    unitIndex++;
-  }
-  return `${size.toFixed(2)} ${units[unitIndex]}`;
-}
-
-/**
- * 格式化时间戳
- */
-function formatTime(timestamp: number): string {
-  return new Date(timestamp * 1000).toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 }
 
 /**
@@ -116,7 +90,7 @@ export function generateDuplicateReportData(groups: DuplicateGroup[]): Duplicate
       name: f.name,
       path: f.path,
       size: f.size,
-      modified: formatTime(f.modified),
+      modified: formatTimestamp(f.modified),
     })),
     savedSpace: group.savedSpace,
     hash: group.hash,
@@ -133,7 +107,7 @@ export function generateVersionReportData(versions: FileVersion[]): VersionRepor
       name: ver.name,
       path: ver.path,
       size: ver.size,
-      modified: formatTime(ver.modified),
+      modified: formatTimestamp(ver.modified),
       versionTag: ver.versionTag,
       isLatest: ver.isLatest,
     })),
@@ -157,9 +131,9 @@ export function exportTestReport(
   const overviewData = [
     { '项目': '数据源', '值': dataSource },
     { '项目': '总文件数', '值': files.length },
-    { '项目': '总大小', '值': formatSize(files.reduce((sum, f) => sum + f.size, 0)) },
+    { '项目': '总大小', '值': formatFileSize(files.reduce((sum, f) => sum + f.size, 0)) },
     { '项目': '重复文件组数', '值': duplicateGroups.length },
-    { '项目': '可节省空间', '值': formatSize(duplicateGroups.reduce((sum, g) => sum + g.savedSpace, 0)) },
+    { '项目': '可节省空间', '值': formatFileSize(duplicateGroups.reduce((sum, g) => sum + g.savedSpace, 0)) },
     { '项目': '版本文件组数', '值': versions.length },
     { '项目': '过期版本数', '值': versions.reduce((sum, v) => sum + v.versions.filter(ver => !ver.isLatest).length, 0) },
     { '项目': '报告生成时间', '值': new Date().toLocaleString('zh-CN') },
@@ -172,9 +146,9 @@ export function exportTestReport(
     '序号': i + 1,
     '文件名': f.name,
     '文件路径': f.path,
-    '文件大小': formatSize(f.size),
+    '文件大小': formatFileSize(f.size),
     '大小(字节)': f.size,
-    '修改时间': formatTime(f.modified),
+    '修改时间': formatTimestamp(f.modified),
     '扩展名': f.extension,
   }));
   const fileListSheet = XLSX.utils.json_to_sheet(fileListData);
@@ -263,9 +237,9 @@ export function exportTextReport(
   lines.push('\n📊 概览');
   lines.push(subSeparator);
   lines.push(`总文件数: ${files.length}`);
-  lines.push(`总大小: ${formatSize(files.reduce((sum, f) => sum + f.size, 0))}`);
+  lines.push(`总大小: ${formatFileSize(files.reduce((sum, f) => sum + f.size, 0))}`);
   lines.push(`重复文件组数: ${duplicateGroups.length}`);
-  lines.push(`可节省空间: ${formatSize(duplicateGroups.reduce((sum, g) => sum + g.savedSpace, 0))}`);
+  lines.push(`可节省空间: ${formatFileSize(duplicateGroups.reduce((sum, g) => sum + g.savedSpace, 0))}`);
   lines.push(`版本文件组数: ${versions.length}`);
 
   // 2. 重复文件组
@@ -278,9 +252,9 @@ export function exportTextReport(
       lines.push(`文件列表:`);
       group.files.forEach((file, j) => {
         const marker = j === 0 ? '📌 (保留)' : '🗑️ (可删除)';
-        lines.push(`  ${j + 1}. ${marker} ${file.path} (${formatSize(file.size)})`);
+        lines.push(`  ${j + 1}. ${marker} ${file.path} (${formatFileSize(file.size)})`);
       });
-      lines.push(`可节省: ${formatSize(group.savedSpace)}`);
+      lines.push(`可节省: ${formatFileSize(group.savedSpace)}`);
     });
   }
 

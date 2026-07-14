@@ -1,19 +1,30 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, lazy, Suspense } from 'react';
 import { Theme, ScanConfig, MatchMode, Page } from './shared/types';
 import Sidebar from './shared/Sidebar';
-import FileFingerprintPage from './deduplication/FileFingerprintPage';
-import DeduplicationPage from './deduplication/DeduplicationPage';
-import VersionComparePage from './deduplication/VersionComparePage';
-import TestPage from './deduplication/TestPage';
-import DataExtractionPage from './extraction/DataExtractionPage';
-import Dashboard from './risk/Dashboard';
-import RiskReport from './risk/RiskReport';
-import DataNetwork from './risk/DataNetwork';
+import ErrorBoundary from './shared/ErrorBoundary';
+import PageSkeleton from './shared/PageSkeleton';
+
+const Dashboard = lazy(() => import('./risk/Dashboard'));
+const RiskReport = lazy(() => import('./risk/RiskReport'));
+const DataNetwork = lazy(() => import('./risk/DataNetwork'));
+const DeduplicationPage = lazy(() => import('./deduplication/DeduplicationPage'));
+const FileFingerprintPage = lazy(() => import('./deduplication/FileFingerprintPage'));
+const VersionComparePage = lazy(() => import('./deduplication/VersionComparePage'));
+const TestPage = lazy(() => import('./deduplication/TestPage'));
+const DataExtractionPage = lazy(() => import('./extraction/DataExtractionPage'));
+const DiagnosticsPage = lazy(() => import('./shared/DiagnosticsPage'));
 
 function App() {
   const [theme, setTheme] = useState<Theme>('dark');
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('sidebarCollapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [scanConfig, setScanConfig] = useState<ScanConfig>({
     recursive: true,
     matchMode: 'both' as MatchMode,
@@ -22,24 +33,23 @@ function App() {
     maxFileSize: 500,
   });
 
-  // 监听 Dashboard 中的"查看详情"导航事件
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (detail?.page === 'risk-report' && detail?.projectId) {
-        setSelectedProjectId(detail.projectId);
-        setCurrentPage('risk-report');
-      }
-    };
-    window.addEventListener('navigate', handler);
-    return () => window.removeEventListener('navigate', handler);
-  }, []);
-
   const toggleTheme = useCallback(() => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
     setTheme(newTheme);
     document.documentElement.setAttribute('data-theme', newTheme);
   }, [theme]);
+
+  const toggleSidebarCollapsed = useCallback(() => {
+    setSidebarCollapsed(prev => !prev);
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('sidebarCollapsed', String(sidebarCollapsed));
+    } catch {
+      // ignore storage errors
+    }
+  }, [sidebarCollapsed]);
 
   const updateScanConfig = useCallback((updates: Partial<ScanConfig>) => {
     setScanConfig(prev => ({ ...prev, ...updates }));
@@ -50,10 +60,20 @@ function App() {
     setCurrentPage(page);
   }, []);
 
+  const handleNavigateWithParams = useCallback((page: string, params?: Record<string, string>) => {
+    if (page === 'risk-report' && params?.projectId) {
+      setSelectedProjectId(params.projectId);
+      setCurrentPage('risk-report');
+    } else {
+      setSelectedProjectId(null);
+      setCurrentPage(page as Page);
+    }
+  }, []);
+
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard':
-        return <Dashboard />;
+        return <Dashboard onNavigate={handleNavigateWithParams} />;
       case 'fingerprint':
         return <FileFingerprintPage config={scanConfig} />;
       case 'deduplication':
@@ -68,23 +88,33 @@ function App() {
         return <RiskReport projectId={selectedProjectId} />;
       case 'data-network':
         return <DataNetwork />;
+      case 'diagnostics':
+        return <DiagnosticsPage />;
       default:
-        return <Dashboard />;
+        return <Dashboard onNavigate={handleNavigateWithParams} />;
     }
   };
 
   return (
-    <div className={`flex h-screen ${theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
-      <Sidebar
-        currentPage={currentPage}
-        theme={theme}
-        onNavigate={handleNavigate}
-        onToggleTheme={toggleTheme}
-      />
-      <main className="flex-1 overflow-auto">
-        {renderPage()}
-      </main>
-    </div>
+    <ErrorBoundary onNavigate={handleNavigate as (page: string) => void}>
+      <div className={`flex h-screen ${theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
+        <Sidebar
+          currentPage={currentPage}
+          theme={theme}
+          collapsed={sidebarCollapsed}
+          onNavigate={handleNavigate}
+          onToggleTheme={toggleTheme}
+          onToggleCollapsed={toggleSidebarCollapsed}
+        />
+        <main className="flex-1 overflow-auto">
+          <ErrorBoundary onNavigate={handleNavigate as (page: string) => void}>
+            <Suspense fallback={<PageSkeleton />}>
+              {renderPage()}
+            </Suspense>
+          </ErrorBoundary>
+        </main>
+      </div>
+    </ErrorBoundary>
   );
 }
 

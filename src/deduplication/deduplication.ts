@@ -7,22 +7,6 @@ import { isParsableDocument, extractTextForHash } from '../extraction/documentPa
 import { calculateNameSimilarity } from './similarity';
 
 /**
- * 格式化文件大小
- */
-export function formatFileSize(bytes: number): string {
-  if (bytes >= 1024 * 1024 * 1024) {
-    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-  }
-  if (bytes >= 1024 * 1024) {
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-  }
-  if (bytes >= 1024) {
-    return `${(bytes / 1024).toFixed(2)} KB`;
-  }
-  return `${bytes} B`;
-}
-
-/**
  * 计算重复率
  */
 export function calculateDuplicateRate(groups: DuplicateGroup[], totalFiles: number): number {

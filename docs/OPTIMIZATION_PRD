@@ -1,0 +1,1085 @@
+# 工程项目智能数据中枢 — 优化 PRD v3.0
+
+**版本**: v3.0 | **日期**: 2026-07-01 | **状态**: 待执行  
+**前置文档**: PRD v2.0（功能需求）、数据提取全链路验证报告  
+**目标**: 将项目从原型/MVP 提升至生产可用级别
+
+---
+
+## 一、优化总览
+
+### 1.1 当前问题分类
+
+| 优先级 | 类别 | 问题数 | 影响 |
+|--------|------|--------|------|
+| **P0** | 致命缺陷 | 3 | 运行时崩溃、数据丢失、白屏 |
+| **P1** | 性能瓶颈 | 8 | 大数据量卡顿、首屏慢、CPU 高占用 |
+| **P2** | 代码质量 | 5 | 包体积膨胀、类型不安全、重复代码 |
+| **P3** | UI/UX 体验 | 8 | 交互粗糙、视觉不一致 |
+| **P4** | 架构优化 | 6 | 可维护性差、扩展困难 |
+
+### 1.2 成功标准
+
+| 指标 | 当前值 | 目标值 |
+|------|--------|--------|
+| TypeScript 编译错误 | 0 | 0（保持） |
+| `any` 类型使用次数 | 23+ | ≤ 3 |
+| 未使用依赖数 | 8 | 0 |
+| 首屏加载时间 | ~2s（估算） | < 1s |
+| 1000 条项目列表渲染 | 全量渲染 | 虚拟滚动 < 100ms |
+| 100 文件提取耗时 | 串行 ~10min | 并发 < 2min |
+| Error Boundary 覆盖 | 0% | 100% |
+| 测试覆盖率 | 0% | ≥ 60%（核心模块） |
+
+---
+
+## 二、P0 — 致命缺陷修复（Sprint 1，预计 2 天）
+
+### 2.1 SQL Schema 统一
+
+**问题**: 表结构在 4 处定义且互相矛盾，运行时会导致 SQL 错误。
+
+**涉及文件**:
+- `migrations/001_init.sql` — 完整 schema（权威来源）
+- `sql/init.sql` — 提取模块子集
+- `src/shared/database.ts` — 前端建表逻辑
+- `src/shared/etl.ts` — ETL 建表逻辑
+
+**具体矛盾点**:
+
+| 表名 | 字段 | migrations | database.ts | etl.ts |
+|------|------|-----------|-------------|--------|
+| `schedules` | 计划开始 | `planned_start_date` | `planned_start` | `plan_date` |
+| `schedules` | 计划结束 | `planned_end_date` | `planned_end` | `plan_date` |
+| `schedules` | 进度 | `progress_percent` | `progress` | `progress` |
+| `schedules` | 里程碑 | `milestone_name` | `milestone` | `milestone` |
+| `payments` | 金额 | `payment_amount` | `amount` | `amount` |
+| `projects` | 路径 | 无 | 无 | `path` |
+
+**修复方案**:
+
+1. 以 `migrations/001_init.sql` 为**唯一权威 Schema**
+2. 删除 `database.ts` 和 `etl.ts` 中所有 `CREATE TABLE` 语句
+3. 在 `database.ts` 的 `initialize()` 中执行 `migrations/001_init.sql` 初始化
+4. 统一所有 INSERT/SELECT 语句的列名与 migration 一致
+
+**执行步骤**:
+
+```
+步骤 1: 修改 src/shared/database.ts
+  - 删除 createTables() 方法中所有 CREATE TABLE 语句
+  - 改为读取并执行 migrations/001_init.sql
+  - 统一 addSchedule() 参数名: planned_start → planned_start_date, planned_end → planned_end_date, progress → progress_percent
+  - 统一 addPayment() 参数名: amount → payment_amount
+
+步骤 2: 修改 src/shared/etl.ts
+  - 删除 aggregateToProjects() 中所有 CREATE TABLE 语句
+  - 统一 INSERT INTO projects 列名（添加 path 列到 migration 或移除）
+  - 统一 INSERT INTO payments 列名: amount → payment_amount
+  - 统一 INSERT INTO schedules 列名: plan_date → planned_start_date, actual_date → actual_end_date, milestone → milestone_name, progress → progress_percent
+
+步骤 3: 修改 migrations/001_init.sql
+  - projects 表添加 path TEXT 列（与 etl.ts 对齐）
+
+步骤 4: 删除 sql/init.sql（已被 migrations/001_init.sql 取代）
+```
+
+**验收标准**:
+- `npm run build` 零错误
+- 所有 SQL 列名在 4 个文件中完全一致
+- 无 `CREATE TABLE` 语句存在于 `database.ts` 和 `etl.ts`
+
+---
+
+### 2.2 消除 CustomEvent 导航
+
+**问题**: `Dashboard.tsx:285-287` 使用 `window.dispatchEvent(new CustomEvent('navigate', ...))` 跳转页面，绕过 React 数据流。
+
+**涉及文件**:
+- `src/risk/Dashboard.tsx:285-287` — 事件派发
+- `src/App.tsx:26-36` — 事件监听
+- `src/shared/types.ts:203` — Page 类型
+
+**修复方案**: 通过 props 回调传递导航函数。
+
+**执行步骤**:
+
+```
+步骤 1: 修改 src/shared/types.ts
+  - 在 Page 类型中确认所有路由已定义（当前已完整）
+
+步骤 2: 修改 src/risk/Dashboard.tsx
+  - 添加 props: { onNavigate?: (page: Page, params?: Record<string, string>) => void }
+  - 将 CustomEvent 替换为: onNavigate?.('risk-report', { projectId: project.id })
+
+步骤 3: 修改 src/App.tsx
+  - 删除 useEffect 中的 navigate 事件监听（第 26-36 行）
+  - 将 handleNavigate 传递给 Dashboard: <Dashboard onNavigate={handleNavigateWithParams} />
+  - 新增 handleNavigateWithParams(page, params) 处理 projectId 等参数
+```
+
+**验收标准**:
+- 代码中无 `CustomEvent` 和 `dispatchEvent` 调用
+- Dashboard "查看详情" 按钮正常跳转
+- `App.tsx` 中无 `window.addEventListener`
+
+---
+
+### 2.3 添加 Error Boundary
+
+**问题**: 任何组件崩溃导致整个应用白屏。
+
+**涉及文件**:
+- `src/App.tsx` — 需要包裹 ErrorBoundary
+- 新建 `src/shared/ErrorBoundary.tsx`
+
+**执行步骤**:
+
+```
+步骤 1: 新建 src/shared/ErrorBoundary.tsx
+  - 实现 React Error Boundary 类组件
+  - 捕获错误后显示友好的错误页面（暗色主题，与项目风格一致）
+  - 包含: 错误信息展示、"重新加载"按钮、"返回首页"按钮
+  - 错误信息包含: 组件名、错误消息、堆栈摘要（前 3 行）
+
+步骤 2: 修改 src/App.tsx
+  - 在 <main> 内部用 <ErrorBoundary> 包裹 {renderPage()}
+  - 在 <Sidebar> 外部也用 <ErrorBoundary> 包裹（防止侧边栏崩溃影响全局）
+
+步骤 3: 为高风险组件添加独立 Error Boundary
+  - Dashboard.tsx 中的 CostPieChart 和 RiskBarChart（图表渲染易崩溃）
+  - DataNetwork.tsx 中的关系图渲染区域
+```
+
+**ErrorBoundary 组件规格**:
+
+```tsx
+// src/shared/ErrorBoundary.tsx
+interface Props { children: React.ReactNode; fallback?: React.ReactNode; }
+interface State { hasError: boolean; error: Error | null; }
+
+// UI 规格:
+// - 背景: bg-gray-800 rounded-lg p-8
+// - 图标: 红色警告 SVG
+// - 标题: "页面出现错误" (text-red-400)
+// - 错误信息: text-gray-400 text-sm, 最多显示 3 行
+// - 按钮: "重新加载" (bg-primary) + "返回首页" (bg-gray-700)
+// - 重新加载: window.location.reload()
+// - 返回首页: 调用 navigate('dashboard')
+```
+
+**验收标准**:
+- 故意在组件中 throw Error，验证 Error Boundary 捕获并显示友好页面
+- 点击 "重新加载" 可恢复
+- 控制台仍输出完整错误信息
+
+---
+
+## 三、P1 — 性能优化（Sprint 2-3，预计 3.5 天）
+
+### 3.1 文件处理并发化
+
+**问题**: `DataExtractionPage.tsx:83-109` 逐文件串行处理，100 文件约需 10 分钟。
+
+**涉及文件**:
+- `src/extraction/DataExtractionPage.tsx:83-91` — 解析循环
+- `src/extraction/DataExtractionPage.tsx:98-109` — 抽取循环
+- `src/extraction/DataExtractionPage.tsx:115-136` — 保存循环
+
+**修复方案**: 引入并发池，默认 5 个并行任务。
+
+**执行步骤**:
+
+```
+步骤 1: 新建 src/shared/concurrency.ts
+  - 实现并发池函数:
+    async function processInParallel<T, R>(
+      items: T[],
+      processor: (item: T) => Promise<R>,
+      concurrency: number = 5,
+      onProgress?: (completed: number, total: number) => void
+    ): Promise<R[]>
+
+步骤 2: 修改 DataExtractionPage.tsx
+  - 解析阶段: processInParallel(files, parseDocument, 5, onProgress)
+  - 抽取阶段: processInParallel(parseResults, extractFields, 5, onProgress)
+  - 保存阶段: processInParallel(extractResults, saveToDb, 10, onProgress)
+  - 在 UI 中添加并发数配置滑块（范围 1-10，默认 5）
+```
+
+**验收标准**:
+- 100 文件处理时间 < 2 分钟（并发 5）
+- 进度条平滑更新
+- 单个文件失败不影响其他文件
+
+---
+
+### 3.2 数据库批量写入
+
+**问题**: `DeduplicationPage.tsx:176-197` 逐条 INSERT，万级文件严重卡顿。
+
+**涉及文件**:
+- `src/deduplication/DeduplicationPage.tsx:176-197`
+- `src/shared/database.ts` — upsertFile 方法
+
+**修复方案**: 批量 INSERT，每 100 条一次事务。
+
+**执行步骤**:
+
+```
+步骤 1: 在 database.ts 新增方法
+  async batchUpsertFiles(files: Omit<FileRecord, 'id'>[]): Promise<void>
+  - 使用 INSERT OR REPLACE 批量插入
+  - 每 100 条为一个事务批次
+  - 使用单个 SQL 语句拼接多行 VALUES
+
+步骤 2: 修改 DeduplicationPage.tsx
+  - 将 for 循环替换为 batchUpsertFiles(files)
+  - 进度更新改为: 每批次更新一次（而非每文件）
+```
+
+**验收标准**:
+- 10000 文件写入 < 5 秒
+- 进度条正常更新
+- 数据完整性与逐条写入一致
+
+---
+
+### 3.3 虚拟滚动
+
+**问题**: Dashboard 项目表格和 DeduplicationPage 重复组列表无虚拟化，大数据量渲染卡顿。
+
+**涉及文件**:
+- `src/risk/Dashboard.tsx:254-306` — 项目表格
+- `src/deduplication/DeduplicationPage.tsx:443-485` — 重复组列表
+
+**修复方案**: 引入 `react-window` 实现虚拟滚动。
+
+**执行步骤**:
+
+```
+步骤 1: 安装依赖
+  npm install react-window
+  npm install -D @types/react-window
+
+步骤 2: 新建 src/shared/VirtualTable.tsx
+  - 封装 react-window FixedSizeList 为通用虚拟表格组件
+  - props: columns, data, rowHeight=48, height=600
+  - 支持暗色主题样式
+
+步骤 3: 修改 Dashboard.tsx
+  - 将 <table> 替换为 <VirtualTable>
+  - 保持列定义不变: 项目名称/合同额/总成本/结算收入/预估毛利率/实际毛利率/风险等级/操作
+
+步骤 4: 修改 DeduplicationPage.tsx
+  - 将重复组列表替换为 <VirtualList>
+  - 每个重复组高度自适应（使用 VariableSizeList）
+```
+
+**验收标准**:
+- 1000 条项目渲染 < 100ms
+- 滚动流畅，无掉帧
+- 筛选/搜索后虚拟列表正确更新
+
+---
+
+### 3.4 代码分割（React.lazy）
+
+**问题**: `App.tsx` 全量 import 8 个页面组件，首屏加载整个 bundle。
+
+**涉及文件**:
+- `src/App.tsx:4-11` — 8 个 import
+
+**执行步骤**:
+
+```
+步骤 1: 修改 src/App.tsx
+  - 将 8 个页面 import 改为 React.lazy + dynamic import:
+    const Dashboard = lazy(() => import('./risk/Dashboard'));
+    const RiskReport = lazy(() => import('./risk/RiskReport'));
+    const DataNetwork = lazy(() => import('./risk/DataNetwork'));
+    const DeduplicationPage = lazy(() => import('./deduplication/DeduplicationPage'));
+    const FileFingerprintPage = lazy(() => import('./deduplication/FileFingerprintPage'));
+    const VersionComparePage = lazy(() => import('./deduplication/VersionComparePage'));
+    const TestPage = lazy(() => import('./deduplication/TestPage'));
+    const DataExtractionPage = lazy(() => import('./extraction/DataExtractionPage'));
+
+步骤 2: 添加 Suspense 包裹
+  - 在 <main> 内用 <Suspense fallback={<PageSkeleton />}> 包裹
+  - 新建 src/shared/PageSkeleton.tsx（全屏骨架屏）
+
+步骤 3: 确保每个页面组件有 default export
+  - 检查所有 8 个页面文件末尾有 export default
+```
+
+**验收标准**:
+- `npm run build` 产出多个 chunk 文件
+- 首屏只加载 Dashboard chunk + Sidebar
+- 切换页面时有骨架屏过渡
+
+---
+
+### 3.5 ETL 增量更新
+
+**问题**: `etl.ts:142-146` 每次 DELETE 全部 + 重新 INSERT，30s 轮询时 CPU 高占用。
+
+**涉及文件**:
+- `src/shared/etl.ts:142-146`
+- `src/risk/usePolling.ts` — 轮询触发 ETL
+
+**修复方案**: 基于 `updated_at` 时间戳做增量更新。
+
+**执行步骤**:
+
+```
+步骤 1: 修改 src/shared/etl.ts
+  - aggregateToProjects() 新增参数: lastSyncTime?: string
+  - 如果有 lastSyncTime，只查询 extracted_fields 中 extracted_at > lastSyncTime 的记录
+  - 使用 INSERT OR REPLACE 替代 DELETE + INSERT
+  - 返回本次聚合的最新时间戳
+
+步骤 2: 修改 src/risk/usePolling.ts
+  - 存储 lastSyncTime 状态
+  - 每次轮询传入上次同步时间
+  - 只在有新数据时触发 ETL
+```
+
+**验收标准**:
+- 无新数据时 ETL 耗时 < 10ms
+- 有新数据时只更新变化的项目
+- 30s 轮询 CPU 占用 < 1%
+
+---
+
+### 3.6 接入 Web Worker 哈希计算
+
+**问题**: `hashWorker.ts` 已定义但从未使用，哈希计算在主线程阻塞 UI。
+
+**涉及文件**:
+- `src/deduplication/hashWorker.ts` — Worker 代码
+- `src/deduplication/hash.ts` — 主线程哈希
+- `src/deduplication/DeduplicationPage.tsx` — 调用哈希
+
+**执行步骤**:
+
+```
+步骤 1: 修改 src/deduplication/hash.ts
+  - 新增 computeHashInWorker(filePath: string): Promise<string>
+  - 使用 new Worker(new URL('./hashWorker.ts', import.meta.url))
+  - 通过 postMessage/onmessage 通信
+
+步骤 2: 修改 DeduplicationPage.tsx
+  - 哈希计算阶段使用 Worker 版本
+  - 添加 Worker 池（复用 4 个 Worker 实例）
+```
+
+**验收标准**:
+- 大文件（>100MB）哈希计算时 UI 不卡顿
+- Worker 异常时自动回退到主线程计算
+
+---
+
+### 3.7 React.memo 优化
+
+**问题**: 无 `React.memo` 使用，状态变化导致全量重渲染。
+
+**涉及文件**:
+- `src/risk/Dashboard.tsx` — StatCard, RiskBadge, CostPieChart, RiskBarChart
+- `src/shared/Sidebar.tsx`
+- `src/risk/UpdateBar.tsx`
+
+**执行步骤**:
+
+```
+步骤 1: 为纯展示组件添加 React.memo
+  - StatCard: memo(StatCard)
+  - RiskBadge: memo(RiskBadge)
+  - CostPieChart: memo(CostPieChart)
+  - RiskBarChart: memo(RiskBarChart)
+  - Sidebar: memo(Sidebar)
+  - UpdateBar: memo(UpdateBar)
+
+步骤 2: 为回调 props 使用 useCallback
+  - Dashboard 中的 onNavigate 回调
+  - Sidebar 中的 onNavigate, onToggleTheme 回调
+```
+
+**验收标准**:
+- React DevTools Profiler 显示：筛选操作时只有表格行重渲染，图表和侧边栏不重渲染
+
+---
+
+### 3.8 轮询优化
+
+**问题**: `usePolling.ts` 每 30s 触发完整 fetchData()（含 DB 初始化 + ETL + 风险计算）。
+
+**涉及文件**:
+- `src/risk/usePolling.ts`
+- `src/risk/dataStore.ts`
+
+**执行步骤**:
+
+```
+步骤 1: 修改 usePolling.ts
+  - 轮询只检查 MAX(updated_at) 是否变化
+  - 只在时间戳变化时触发 fetchData()
+
+步骤 2: 修改 dataStore.ts
+  - 新增 checkForUpdates() 方法（轻量查询）
+  - fetchData() 拆分为: checkForUpdates() + loadProjects() + calculateRisks()
+```
+
+**验收标准**:
+- 无更新时轮询耗时 < 5ms
+- 有更新时自动刷新看板数据
+
+---
+
+## 四、P2 — 代码质量（Sprint 4，预计 1 天）
+
+### 4.1 清理未使用依赖
+
+**问题**: 8 个 npm 包从未被 import，增加包体积约 40%。
+
+**待清理列表**:
+
+| 包名 | 原因 |
+|------|------|
+| `lucide-react` | 所有图标使用内联 SVG，未 import |
+| `class-variance-authority` | 未 import |
+| `clsx` | 未 import |
+| `tailwind-merge` | 未 import |
+| `@radix-ui/react-checkbox` | 未 import |
+| `@radix-ui/react-dialog` | 未 import |
+| `@radix-ui/react-progress` | 未 import |
+| `@radix-ui/react-select` | 未 import |
+| `@radix-ui/react-tabs` | 未 import |
+| `@radix-ui/react-toast` | 未 import |
+| `@radix-ui/react-tooltip` | 未 import |
+| `ssdeep.js` | 模糊哈希未实现 |
+| `pdf-parse` | PDF 解析由 Python Kreuzberg 处理 |
+
+**执行步骤**:
+
+```
+npm uninstall lucide-react class-variance-authority clsx tailwind-merge \
+  @radix-ui/react-checkbox @radix-ui/react-dialog @radix-ui/react-progress \
+  @radix-ui/react-select @radix-ui/react-tabs @radix-ui/react-toast \
+  @radix-ui/react-tooltip ssdeep.js pdf-parse
+```
+
+**验收标准**:
+- `npm run build` 零错误
+- bundle 体积减少 ≥ 30%
+- `npm ls` 无残留
+
+---
+
+### 4.2 消除 `any` 类型
+
+**问题**: `database.ts` 和 `dataStore.ts` 中大量使用 `any`，类型安全形同虚设。
+
+**涉及文件与具体位置**:
+
+| 文件 | 方法 | 当前类型 | 目标类型 |
+|------|------|---------|---------|
+| `database.ts` | `getProjects()` | `Promise<any[]>` | `Promise<Project[]>` |
+| `database.ts` | `getExtractionSummary()` | `Promise<any[]>` | `Promise<ExtractionSummary[]>` |
+| `database.ts` | `upsertProject(project: any)` | `any` | `ProjectInput` |
+| `database.ts` | `getPayments()` | `Promise<any[]>` | `Promise<Payment[]>` |
+| `database.ts` | `getContracts()` | `Promise<any[]>` | `Promise<Contract[]>` |
+| `database.ts` | `getSubcontractors()` | `Promise<any[]>` | `Promise<Subcontractor[]>` |
+| `database.ts` | `getSchedules()` | `Promise<any[]>` | `Promise<Schedule[]>` |
+
+**执行步骤**:
+
+```
+步骤 1: 在 src/shared/types.ts 新增接口
+  - Contract: { id, projectId, contractNo, amount, partyA, partyB, signDate, filePath }
+  - CostItem: { id, projectId, costType, amount, supplier, filePath }
+  - Settlement: { id, projectId, settleDate, amount, paidAmount, retention, filePath }
+  - ExtractionSummary: { filePath, fileName, status, contractNo, contractAmount, partyA, partyB, settlementAmount, settlementDate }
+  - ProjectInput: Omit<Project, 'id' | 'updatedAt'>
+
+步骤 2: 修改 database.ts
+  - 将所有 any[] 替换为上述具体类型
+  - getProjects() 内部映射逻辑保持，返回类型改为 Project[]
+
+步骤 3: 修改 etl.ts
+  - extractedData 的类型从 any[] 改为 ExtractedFieldRow[]
+  - 定义 ExtractedFieldRow 接口
+```
+
+**验收标准**:
+- `grep -r "any" src/ --include="*.ts" --include="*.tsx"` 结果 ≤ 3 处
+- `npm run build` 零错误
+
+---
+
+### 4.3 提取公共工具函数
+
+**问题**: 格式化函数在多处重复定义。
+
+**重复清单**:
+
+| 函数 | 位置 1 | 位置 2 |
+|------|--------|--------|
+| `formatFileSize` | `deduplication.ts:12` | `reportGenerator.ts:45` |
+| `formatTimestamp` | `versionManager.ts:88` | `reportGenerator.ts:52` |
+
+**执行步骤**:
+
+```
+步骤 1: 新建 src/shared/format.ts
+  - export function formatFileSize(bytes: number): string
+  - export function formatTimestamp(ts: number): string
+  - export function formatCurrency(amount: number): string
+  - export function formatPercent(rate: number): string
+  - export function formatDate(date: string): string
+
+步骤 2: 修改所有引用处
+  - deduplication.ts: 删除本地 formatFileSize，改为 import
+  - reportGenerator.ts: 删除本地 formatSize/formatTime，改为 import
+  - versionManager.ts: 删除本地 formatTimestamp，改为 import
+  - Dashboard.tsx: 内联的 (value / 10000).toFixed(0) 替换为 formatCurrency
+```
+
+**验收标准**:
+- 每个格式化函数只有一处定义
+- `npm run build` 零错误
+
+---
+
+### 4.4 清理隐私数据
+
+**问题**: `src/deduplication/realData.ts` 包含真实项目文件路径。
+
+**执行步骤**:
+
+```
+步骤 1: 修改 src/deduplication/realData.ts
+  - 将所有真实路径替换为脱敏示例路径
+  - 例如: D:\02.chenwenke2024\... → D:\示例项目\合同文件\...
+
+步骤 2: 检查 .gitignore
+  - 确保不包含真实数据文件
+```
+
+**验收标准**:
+- 代码中无真实文件路径
+- `grep -r "chenwenke\|联营项目\|西北工业大学" src/` 结果为空
+
+---
+
+### 4.5 添加核心模块单元测试
+
+**问题**: 零测试文件，核心逻辑无保障。
+
+**执行步骤**:
+
+```
+步骤 1: 安装测试框架
+  npm install -D vitest @testing-library/react @testing-library/jest-dom jsdom
+
+步骤 2: 配置 vitest
+  - 新建 vitest.config.ts（继承 vite.config.ts）
+  - package.json 添加 "test": "vitest", "test:coverage": "vitest --coverage"
+
+步骤 3: 编写测试（按优先级）
+  - src/shared/__tests__/format.test.ts — 格式化函数
+  - src/extraction/__tests__/fieldMapper.test.ts — 字段映射
+  - src/risk/__tests__/riskEngine.test.ts — 6 条风险规则
+  - src/deduplication/__tests__/similarity.test.ts — 文件名相似度
+  - src/deduplication/__tests__/versionManager.test.ts — 版本管理
+  - src/shared/__tests__/etl.test.ts — ETL 聚合逻辑（mock DB）
+```
+
+**验收标准**:
+- `npm run test` 全部通过
+- 核心模块覆盖率 ≥ 60%
+- CI 中测试 < 30s
+
+---
+
+## 五、P3 — UI/UX 优化（Sprint 5，预计 2 天）
+
+### 5.1 数据网关系图可视化
+
+**问题**: `DataNetwork.tsx` 用 `└─` 字符拼接的树列表，不是真正的关系图。`_edges` 状态已计算但未渲染。
+
+**涉及文件**:
+- `src/risk/DataNetwork.tsx` — 整个文件重写可视化部分
+
+**修复方案**: 使用 `reactflow` 实现真正的节点-边关系图。
+
+**执行步骤**:
+
+```
+步骤 1: 安装依赖
+  npm install reactflow
+
+步骤 2: 重写 DataNetwork.tsx 可视化部分
+  - 将 nodes 转换为 reactflow Node[] 格式
+  - 将 edges 转换为 reactflow Edge[] 格式
+  - 节点样式:
+    - project: 蓝色圆形，大尺寸
+    - contract: 绿色矩形
+    - cost: 橙色矩形
+    - settlement: 紫色矩形
+    - schedule: 粉色矩形
+  - 边样式: 带箭头的曲线，边上显示 label
+  - 支持: 拖拽、缩放、小地图、自动布局
+
+步骤 3: 保留左侧节点列表面板
+  - 点击节点高亮对应的图和列表项
+```
+
+**验收标准**:
+- 关系图正确显示所有节点和边
+- 支持拖拽和缩放
+- 点击节点弹出详情
+
+---
+
+### 5.2 Toast 通知替换 alert()
+
+**问题**: 多处使用浏览器原生 `alert()`，体验割裂。
+
+**涉及文件**:
+- `src/deduplication/DeduplicationPage.tsx:47,71` — alert
+- `src/risk/RiskReport.tsx` — alert
+- `src/deduplication/TestPage.tsx` — alert
+
+**执行步骤**:
+
+```
+步骤 1: 新建 src/shared/Toast.tsx
+  - 实现轻量 Toast 组件（无外部依赖）
+  - 支持: success/error/warning/info 四种类型
+  - 自动消失: 3 秒
+  - 位置: 右上角
+  - 使用 React Portal 渲染
+
+步骤 2: 新建 src/shared/useToast.ts
+  - export function useToast(): { toast: (type, message) => void }
+  - 全局 Toast 容器在 App.tsx 中挂载
+
+步骤 3: 替换所有 alert() 调用
+  - DeduplicationPage: alert → toast('error', '...')
+  - RiskReport: alert → toast('error', '...')
+  - TestPage: alert → toast('info', '...')
+```
+
+**验收标准**:
+- 代码中无 `alert(` 调用
+- Toast 在右上角弹出，3 秒后自动消失
+- 暗色主题样式一致
+
+---
+
+### 5.3 骨架屏组件
+
+**问题**: 加载状态为纯文字 "加载中..."，无视觉反馈。
+
+**执行步骤**:
+
+```
+步骤 1: 新建 src/shared/Skeleton.tsx
+  - SkeletonLine: 单行骨架（宽度可配置）
+  - SkeletonCard: 卡片骨架（模拟 StatCard）
+  - SkeletonTable: 表格骨架（行数可配置）
+  - SkeletonChart: 图表骨架（矩形 + 脉冲动画）
+  - PageSkeleton: 整页骨架（组合上述组件）
+
+步骤 2: 在 App.tsx 的 Suspense fallback 中使用 PageSkeleton
+
+步骤 3: 各页面加载中状态替换
+  - Dashboard: 4 个 SkeletonCard + SkeletonTable + SkeletonChart
+  - DeduplicationPage: SkeletonTable
+  - DataExtractionPage: SkeletonCard * 7
+```
+
+**验收标准**:
+- 所有页面加载时显示骨架屏
+- 骨架屏有脉冲动画效果
+- 数据加载完成后平滑替换
+
+---
+
+### 5.4 表格分页
+
+**问题**: 所有表格无分页，大数据量时渲染和交互卡顿。
+
+**涉及文件**:
+- `src/risk/Dashboard.tsx:254-306` — 项目表格
+- `src/deduplication/DeduplicationPage.tsx:443-485` — 重复组列表
+
+**执行步骤**:
+
+```
+步骤 1: 新建 src/shared/Pagination.tsx
+  - props: currentPage, totalPages, onPageChange, pageSize
+  - UI: 上一页/下一页按钮 + 页码显示 + 每页条数选择
+  - 暗色主题样式
+
+步骤 2: 新建 src/shared/usePagination.ts
+  - 通用分页 hook: usePagination(data, pageSize)
+  - 返回: { pageData, currentPage, totalPages, setPage, pageSize, setPageSize }
+
+步骤 3: 集成到 Dashboard 和 DeduplicationPage
+  - 默认每页 20 条
+  - 可选: 10/20/50/100
+```
+
+**验收标准**:
+- 表格底部显示分页控件
+- 切换页码流畅
+- 筛选/搜索后重置到第 1 页
+
+---
+
+### 5.5 风险报告低风险显示
+
+**问题**: `RiskReport.tsx` 硬编码过滤 `overallRisk !== 'low'`，用户无法查看低风险项目。
+
+**执行步骤**:
+
+```
+步骤 1: 修改 RiskReport.tsx
+  - 添加 toggle: "显示低风险项目"
+  - 默认关闭（保持现有行为）
+  - 开启后显示所有风险等级
+```
+
+**验收标准**:
+- Toggle 可切换低风险项目的显示/隐藏
+
+---
+
+### 5.6 侧边栏可折叠
+
+**问题**: 侧边栏固定 256px，小屏幕下占用过多空间。
+
+**执行步骤**:
+
+```
+步骤 1: 修改 src/shared/Sidebar.tsx
+  - 添加 collapsed 状态
+  - 折叠时只显示图标（宽度 64px）
+  - 展开时显示图标+文字（宽度 256px）
+  - 添加折叠/展开按钮（底部）
+  - 过渡动画: transition-all duration-300
+
+步骤 2: 修改 src/App.tsx
+  - 添加 sidebarCollapsed 状态
+  - 传递给 Sidebar 和 main 区域
+```
+
+**验收标准**:
+- 点击折叠按钮，侧边栏平滑收缩到 64px
+- 折叠状态下 hover 图标显示 tooltip
+- 状态持久化到 localStorage
+
+---
+
+### 5.7 文件指纹页接入真实哈希
+
+**问题**: `FileFingerprintPage.tsx` 只哈希固定字符串，是空壳页面。
+
+**执行步骤**:
+
+```
+步骤 1: 修改 FileFingerprintPage.tsx
+  - 添加文件选择器（Tauri dialog 或 <input type="file">）
+  - 选择文件后计算真实 SHA-256 哈希
+  - 显示: 文件名、大小、哈希值、计算耗时
+  - 支持多文件批量哈希
+
+步骤 2: 添加哈希对比功能
+  - 两个文件并排显示哈希
+  - 相同则绿色高亮，不同则红色高亮
+```
+
+**验收标准**:
+- 选择真实文件后显示正确哈希
+- 同一文件两次哈希结果一致
+- 不同文件哈希不同
+
+---
+
+### 5.8 进度指示器统一
+
+**问题**: 不同页面使用不同进度 UI 模式。
+
+**执行步骤**:
+
+```
+步骤 1: 新建 src/shared/ProgressBar.tsx
+  - props: current, total, message, variant='primary'|'success'|'warning'
+  - 统一样式: 百分比 + 进度条 + 当前文件/消息
+  - 动画: 平滑过渡
+
+步骤 2: 替换所有页面的进度条
+  - DeduplicationPage: 替换内联进度条
+  - DataExtractionPage: 替换内联进度条
+  - FileFingerprintPage: 使用统一组件
+```
+
+**验收标准**:
+- 所有页面进度条样式一致
+- 百分比和消息文本同步更新
+
+---
+
+## 六、P4 — 架构优化（Sprint 6，预计 2 天）
+
+### 6.1 API 抽象层
+
+**问题**: Tauri `invoke()` 调用散落在各组件和服务中，无统一管理。
+
+**执行步骤**:
+
+```
+步骤 1: 新建 src/api/tauriApi.ts
+  - 封装所有 Tauri invoke 调用
+  - export const tauriApi = {
+      scanDirectory(path, recursive): Promise<ScanResult>,
+      getManifest(folderPath): Promise<FileManifest>,
+      parseFile(filePath): Promise<ParseResult>,
+      extractFields(text, schema?): Promise<ExtractionResult>,
+      moveToBackup(files, backupDir): Promise<string[]>,
+      restoreFromBackup(files, originalDir): Promise<string[]>,
+      checkUieService(): Promise<ServiceStatus>,
+    }
+
+步骤 2: 修改所有调用处
+  - entityExtractor.ts: invoke → tauriApi.extractFields
+  - fileParser.ts: invoke → tauriApi.parseFile / getManifest
+  - DeduplicationPage.tsx: invoke → tauriApi.scanDirectory / moveToBackup
+  - database.ts: invoke → tauriApi.dbExecute / dbSelect
+
+步骤 3: 添加错误处理中间件
+  - 所有 API 调用统一 try/catch
+  - 错误转换为中文友好消息
+  - 添加重试机制（网络类错误，最多 3 次）
+```
+
+**验收标准**:
+- 代码中无直接 `invoke()` 调用（除 api 层内部）
+- 所有 API 错误有统一的错误格式
+
+---
+
+### 6.2 Zustand Store 拆分
+
+**问题**: `dataStore.ts` 承担数据获取、ETL 编排、mock 数据生成、风险计算四项职责。
+
+**执行步骤**:
+
+```
+步骤 1: 拆分为 3 个 store
+  - src/risk/stores/useProjectStore.ts — 项目数据 CRUD
+  - src/risk/stores/useRiskStore.ts — 风险计算和统计
+  - src/risk/stores/useETLStore.ts — ETL 状态和触发
+
+步骤 2: 修改 dataStore.ts
+  - 改为组合 store（facade 模式）
+  - 保持对外 API 不变（向后兼容）
+
+步骤 3: 逐步迁移消费者
+  - Dashboard.tsx: useDataStore → useProjectStore + useRiskStore
+  - RiskReport.tsx: useDataStore → useProjectStore
+  - DataNetwork.tsx: useDataStore → useProjectStore
+```
+
+**验收标准**:
+- 每个 store 职责单一
+- 现有功能不受影响
+
+---
+
+### 6.3 数据校验层（Zod）
+
+**问题**: Python → Rust → TypeScript 数据流无 schema 校验，畸形数据静默传播。
+
+**执行步骤**:
+
+```
+步骤 1: 安装 zod
+  npm install zod
+
+步骤 2: 新建 src/shared/schemas.ts
+  - FileRecordSchema: z.object({...})
+  - ExtractedFieldsSchema: z.object({...})
+  - ProjectSchema: z.object({...})
+  - ParseResultSchema: z.object({...})
+  - ExtractionResultSchema: z.object({...})
+
+步骤 3: 在数据边界添加校验
+  - database.ts: 写入前 validate
+  - entityExtractor.ts: 返回前 validate
+  - fileParser.ts: 返回前 validate
+  - etl.ts: 聚合前 validate
+```
+
+**验收标准**:
+- 畸形数据触发明确的错误消息（包含字段名和期望类型）
+- 不合法数据不会写入数据库
+
+---
+
+### 6.4 Python 服务自动管理
+
+**问题**: SiameseUIE 服务需手动启动，无健康监控。
+
+**执行步骤**:
+
+```
+步骤 1: 修改 src-tauri/src/main.rs
+  - 添加 auto_start_uie_service 命令
+  - 使用 std::process::Command 启动 Python 脚本
+  - 存储子进程 PID 用于清理
+
+步骤 2: 修改 src/extraction/DataExtractionPage.tsx
+  - 页面加载时自动检查 UIE 服务状态
+  - 如果未运行，显示 "启动 AI 服务" 按钮
+  - 启动后显示加载动画直到 /health 返回 200
+
+步骤 3: 添加服务状态指示器
+  - 在数据提取页顶部显示: 🟢 AI 服务运行中 / 🔴 AI 服务未启动
+```
+
+**验收标准**:
+- 进入数据提取页时自动检测服务状态
+- 一键启动 AI 服务
+- 服务异常时显示明确提示
+
+---
+
+### 6.5 统一项目选择器
+
+**问题**: 去重/文件工具 和 风险监控 两套数据流割裂，用户无法从文件扫描直接跳转到风险分析。
+
+**执行步骤**:
+
+```
+步骤 1: 新建 src/shared/ProjectSelector.tsx
+  - 全局项目选择器（放在侧边栏顶部）
+  - 数据源: projects 表
+  - 选择后全局状态同步
+
+步骤 2: 修改各页面
+  - Dashboard: 默认显示选中项目的详情
+  - DeduplicationPage: 扫描路径关联到选中项目
+  - DataExtractionPage: 提取结果关联到选中项目
+  - DataNetwork: 显示选中项目的数据网
+```
+
+**验收标准**:
+- 选择项目后，所有页面联动更新
+- 切换项目时数据平滑过渡
+
+---
+
+### 6.6 亮色主题修复
+
+**问题**: 亮色主题下大部分组件仍使用暗色硬编码 class。
+
+**执行步骤**:
+
+```
+步骤 1: 修改 tailwind.config.js
+  - 使用 CSS 变量定义颜色（而非硬编码值）
+  - 添加 darkMode: 'class' 配置
+
+步骤 2: 修改 src/index.css
+  - :root 定义亮色变量
+  - [data-theme="dark"] 定义暗色变量
+  - 所有颜色通过 var() 引用
+
+步骤 3: 逐页面替换硬编码颜色
+  - bg-gray-800 → bg-[var(--bg-card)]
+  - text-white → text-[var(--text-primary)]
+  - text-gray-400 → text-[var(--text-secondary)]
+  - border-gray-700 → border-[var(--border)]
+```
+
+**验收标准**:
+- 切换主题后所有组件正确变色
+- 亮色主题下文字清晰可读
+- 暗色主题保持现有效果
+
+---
+
+## 七、Sprint 计划与依赖关系
+
+```
+Sprint 1 (2天) ─── P0 致命修复
+  ├─ 2.1 SQL Schema 统一
+  ├─ 2.2 消除 CustomEvent 导航
+  └─ 2.3 添加 Error Boundary
+       │
+Sprint 2 (2天) ─── P1 性能（上）
+  ├─ 3.1 文件处理并发化
+  ├─ 3.2 数据库批量写入
+  └─ 3.3 虚拟滚动
+       │
+Sprint 3 (1.5天) ─ P1 性能（下）
+  ├─ 3.4 代码分割
+  ├─ 3.5 ETL 增量更新
+  ├─ 3.6 Web Worker 哈希
+  ├─ 3.7 React.memo
+  └─ 3.8 轮询优化
+       │
+Sprint 4 (1天) ─── P2 代码质量
+  ├─ 4.1 清理未使用依赖
+  ├─ 4.2 消除 any 类型
+  ├─ 4.3 提取公共工具函数
+  ├─ 4.4 清理隐私数据
+  └─ 4.5 添加单元测试
+       │
+Sprint 5 (2天) ─── P3 UI/UX
+  ├─ 5.1 数据网关系图
+  ├─ 5.2 Toast 通知
+  ├─ 5.3 骨架屏
+  ├─ 5.4 表格分页
+  ├─ 5.5 风险报告低风险显示
+  ├─ 5.6 侧边栏可折叠
+  ├─ 5.7 文件指纹页真实化
+  └─ 5.8 进度指示器统一
+       │
+Sprint 6 (2天) ─── P4 架构
+  ├─ 6.1 API 抽象层
+  ├─ 6.2 Store 拆分
+  ├─ 6.3 Zod 数据校验
+  ├─ 6.4 Python 服务自动管理
+  ├─ 6.5 统一项目选择器
+  └─ 6.6 亮色主题修复
+```
+
+**依赖关系**:
+- 3.3 虚拟滚动 → 依赖 5.4 分页（二选一，虚拟滚动优先）
+- 3.5 ETL 增量 → 依赖 2.1 Schema 统一
+- 4.5 单元测试 → 依赖 4.3 工具函数提取
+- 6.2 Store 拆分 → 依赖 6.1 API 抽象层
+- 6.5 项目选择器 → 依赖 6.2 Store 拆分
+
+---
+
+## 八、验收检查清单
+
+每个 Sprint 完成后执行:
+
+- [ ] `npm run build` — TypeScript 编译零错误
+- [ ] `npm run test` — 所有测试通过（Sprint 4 后）
+- [ ] 手动验证: 8 个页面全部可访问
+- [ ] 手动验证: Dashboard 数据展示正常
+- [ ] 手动验证: 文件去重流程完整
+- [ ] 手动验证: 数据提取流程完整
+- [ ] 手动验证: 主题切换正常
+- [ ] 性能检查: 1000 条数据渲染 < 100ms
+- [ ] 包体积: bundle 总体积 < 1MB (gzip)
+
+---
+
+**文档结束**

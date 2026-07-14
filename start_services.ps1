@@ -1,63 +1,80 @@
-# 启动数据提取服务脚本
-# 用于启动 UIE 服务和开发服务器
+# Starts the local AI extraction service in a project-scoped Python environment.
+[CmdletBinding()]
+param(
+  [int]$Port = 8000,
+  [int]$StartupTimeoutSeconds = 120,
+  [switch]$SkipInstall
+)
 
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  数据提取服务启动脚本" -ForegroundColor Cyan
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host ""
+$ErrorActionPreference = 'Stop'
+$projectRoot = $PSScriptRoot
+$venvPath = Join-Path $projectRoot '.venv'
+$pythonExe = Join-Path $venvPath 'Scripts\python.exe'
+$requirementsPath = Join-Path $projectRoot 'python\requirements.txt'
+$serviceScript = Join-Path $projectRoot 'python\start_uie_service.py'
+$healthUrl = "http://127.0.0.1:$Port/health"
 
-# 检查 Python 是否安装
-Write-Host "[1/4] 检查 Python 环境..." -ForegroundColor Yellow
-try {
-    $pythonVersion = python --version 2>&1
-    Write-Host "  Python: $pythonVersion" -ForegroundColor Green
-} catch {
-    Write-Host "  错误: Python 未安装" -ForegroundColor Red
-    exit 1
+function Stop-UieServiceJob {
+  param($Job)
+  if ($null -ne $Job) {
+    Stop-Job -Job $Job -ErrorAction SilentlyContinue
+    Remove-Job -Job $Job -Force -ErrorAction SilentlyContinue
+  }
 }
 
-# 检查 Node.js 是否安装
-Write-Host "[2/4] 检查 Node.js 环境..." -ForegroundColor Yellow
-try {
-    $nodeVersion = node --version 2>&1
-    Write-Host "  Node.js: $nodeVersion" -ForegroundColor Green
-} catch {
-    Write-Host "  错误: Node.js 未安装" -ForegroundColor Red
-    exit 1
+Write-Host 'Checking local AI service environment...' -ForegroundColor Cyan
+if ($null -eq (Get-Command python -ErrorAction SilentlyContinue)) {
+  throw 'Python 3.9 or newer is required.'
 }
 
-# 安装 Python 依赖
-Write-Host "[3/4] 安装 Python 依赖..." -ForegroundColor Yellow
-cd python
-pip install -r requirements.txt -q
-cd ..
+if (-not (Test-Path $pythonExe)) {
+  Write-Host 'Creating project virtual environment...' -ForegroundColor Yellow
+  & python -m venv $venvPath
+}
 
-# 启动 UIE 服务（后台运行）
-Write-Host "[4/4] 启动 UIE 服务..." -ForegroundColor Yellow
+if (-not $SkipInstall) {
+  Write-Host 'Installing Python dependencies into .venv...' -ForegroundColor Yellow
+  & $pythonExe -m pip install --disable-pip-version-check -q -r $requirementsPath
+}
+
+Write-Host "Starting UIE service on port $Port..." -ForegroundColor Yellow
 $uieJob = Start-Job -ScriptBlock {
-    Set-Location $using:PWD
-    python python/start_uie_service.py --port 8000
+  param($exe, $script, $servicePort)
+  & $exe $script --port $servicePort
+} -ArgumentList $pythonExe, $serviceScript, $Port
+
+$deadline = (Get-Date).AddSeconds($StartupTimeoutSeconds)
+$health = $null
+while ((Get-Date) -lt $deadline) {
+  try {
+    $health = Invoke-RestMethod -Uri $healthUrl -TimeoutSec 3
+    if (($health.status -eq 'ok') -and ($health.model_loaded -eq $true)) {
+      break
+    }
+  } catch {
+    # Service is still starting.
+  }
+  Start-Sleep -Seconds 2
 }
 
-Write-Host ""
-Write-Host "========================================" -ForegroundColor Green
-Write-Host "  服务已启动" -ForegroundColor Green
-Write-Host "========================================" -ForegroundColor Green
-Write-Host ""
-Write-Host "UIE 服务: http://127.0.0.1:8000" -ForegroundColor Cyan
-Write-Host "开发服务器: npm run tauri:dev" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "按 Ctrl+C 停止所有服务" -ForegroundColor Yellow
-Write-Host ""
+if (($null -eq $health) -or ($health.status -ne 'ok') -or ($health.model_loaded -ne $true)) {
+  $jobOutput = Receive-Job -Job $uieJob -Keep -ErrorAction SilentlyContinue | Out-String
+  Stop-UieServiceJob -Job $uieJob
+  throw "UIE service was not ready within $StartupTimeoutSeconds seconds. Output: $jobOutput"
+}
 
-# 等待用户中断
+Write-Host "UIE service is ready: $healthUrl" -ForegroundColor Green
+Write-Host 'Run npm run tauri:dev in another terminal to start the desktop app.' -ForegroundColor Cyan
+Write-Host 'Press Ctrl+C to stop the service started by this script.' -ForegroundColor Yellow
+
 try {
-    while ($true) {
-        Start-Sleep -Seconds 1
+  while ($true) {
+    Start-Sleep -Seconds 1
+    if ($uieJob.State -ne 'Running') {
+      throw "UIE service stopped unexpectedly: $($uieJob.State)"
     }
+  }
 } finally {
-    # 停止 UIE 服务
-    Stop-Job -Job $uieJob
-    Remove-Job -Job $uieJob
-    Write-Host "服务已停止" -ForegroundColor Red
+  Stop-UieServiceJob -Job $uieJob
+  Write-Host 'UIE service stopped.' -ForegroundColor Yellow
 }

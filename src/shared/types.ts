@@ -160,33 +160,73 @@ export interface Project {
   updatedAt: string;
 }
 
+// 合同
+export interface Contract {
+  id: number;
+  projectId: number;
+  contractNo: string;
+  amount: number;
+  partyA: string;
+  partyB: string;
+  signDate: string;
+  filePath: string;
+  createdAt: string;
+}
+
+// 成本明细
+export interface CostItem {
+  id: number;
+  projectId: number;
+  costType: string;
+  amount: number;
+  supplier: string;
+  filePath: string;
+  createdAt: string;
+}
+
+// 结算
+export interface Settlement {
+  id: number;
+  projectId: number;
+  settleDate: string;
+  amount: number;
+  paidAmount: number;
+  retention: number;
+  filePath: string;
+  createdAt: string;
+}
+
 // 付款记录
 export interface Payment {
   id: number;
-  projectId: string;
+  projectId: number;
   paymentAmount: number;
   paymentDate: string;
   paymentType: string;
+  note?: string;
 }
 
 // 分包商
 export interface Subcontractor {
   id: number;
-  projectId: string;
+  projectId: number;
   name: string;
   contractAmount: number;
   paidAmount: number;
+  contactPerson?: string;
+  phone?: string;
 }
 
 // 进度计划
 export interface Schedule {
   id: number;
-  projectId: string;
+  projectId: number;
   plannedStartDate: string;
   plannedEndDate: string;
   actualStartDate: string;
   actualEndDate: string;
   progressPercent: number;
+  milestoneName: string;
 }
 
 // 看板统计
@@ -200,4 +240,4 @@ export interface DashboardStats {
 }
 
 // 页面类型扩展
-export type Page = 'dashboard' | 'fingerprint' | 'deduplication' | 'version' | 'test' | 'extraction' | 'risk-report' | 'data-network';
+export type Page = 'dashboard' | 'fingerprint' | 'deduplication' | 'version' | 'test' | 'extraction' | 'risk-report' | 'data-network' | 'diagnostics';

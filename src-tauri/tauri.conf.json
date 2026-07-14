@@ -51,13 +51,13 @@
       ]
     },
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; connect-src 'self' http://127.0.0.1:8000; img-src 'self' asset: data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:"
     },
     "windows": [
       {
         "fullscreen": false,
         "resizable": true,
-        "title": "文件去重工具 V1.1",
+        "title": "工程项目智能数据中枢 v1.0",
         "width": 1200,
         "height": 800,
         "minWidth": 800,

@@ -14,10 +14,8 @@
 # 前端依赖
 npm install
 
-# Python依赖（AI模型）
-cd python
-pip install -r requirements.txt
-cd ..
+# Python/AI 服务（自动创建项目级 .venv 并等待模型就绪）
+powershell -ExecutionPolicy Bypass -File start_services.ps1
 ```
 
 ### 2. 启动开发服务器
@@ -63,12 +61,8 @@ npm run tauri:dev
 
 ## 常见问题
 
-### Q: Dashboard显示空数据？
-**A**: 检查是否完成数据提取流程。查看控制台日志：
-```
-[DataStore] projects表为空，尝试运行ETL聚合...
-[DataStore] ⚠ extracted_fields表也为空，请先运行数据提取流程
-```
+### Q: Dashboard 显示空数据？
+**A**: 当前版本只使用已确认字段生成正式项目数据。请在“数据提取”完成处理后，在“字段人工复核”中确认关键字段，再返回看板刷新。可在“运行诊断”检查待复核数量和数据库完整性。
 
 ### Q: 扫描大量文件时卡顿？
 **A**: 已优化为批量更新（每100个文件更新一次进度），应该不会卡顿。如仍有问题，检查是否使用了旧版本代码。
@@ -77,7 +71,7 @@ npm run tauri:dev
 **A**: 首次计算后会缓存到SQLite，第二次会直接读取缓存。检查files表中file_hash字段是否有值。
 
 ### Q: 备份后如何恢复？
-**A**: 点击"从备份恢复"按钮，选择备份目录（格式：.backup_时间戳），确认恢复。
+**A**: 备份目录保存 `operation.json` 和原始相对目录结构。恢复时默认跳过已存在的原路径，避免覆盖用户后续修改。
 
 ### Q: CAD图纸为什么排在前面？
 **A**: 已在Sprint 3修复，重新编译后CAD/图片会排在最后。
@@ -100,12 +94,8 @@ SELECT * FROM extracted_fields LIMIT 10;
 
 ## 调试技巧
 
-### 启用详细日志
-打开浏览器开发者工具（F12），查看Console面板：
-- `[DataStore]` - 数据加载日志
-- `[DatabaseService]` - 数据库操作日志
-- `[PersistentHashCache]` - 哈希缓存日志
-- `[SmartPolling]` - 热更新日志
+### 诊断运行状态
+从侧边栏打开“运行诊断”，可检查桌面环境、AI 模型状态、SQLite 完整性、外键异常和待复核字段数量。
 
 ### 清空数据重新开始
 ```typescript
@@ -118,9 +108,7 @@ location.reload();
 ## 性能监控
 
 ### 扫描性能
-- 10万文件 < 5分钟 ✅
-- 哈希缓存命中率 > 80% ✅
-- UI响应时间 < 100ms ✅
+性能指标需以 `tests/golden-sample` 中的脱敏真实样本实测为准；当前不对未验证的文件规模或耗时作承诺。
 
 ### 内存使用
 - 空闲时 < 200MB

@@ -2,11 +2,13 @@
 // 展示风险概览、项目列表、成本构成和风险分布图表
 // 使用 recharts 库实现图表
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, memo } from 'react';
 import { useDataStore } from './dataStore';
 import { RiskLevel, Project } from '../shared/types';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import UpdateBar from './UpdateBar';
+import VirtualTable from '../shared/VirtualTable';
+import { formatCurrency, formatPercent } from '../shared/format';
 
 // 风险等级颜色映射
 const RISK_COLORS: Record<string, string> = {
@@ -22,7 +24,7 @@ const RISK_LABELS: Record<string, string> = {
 };
 
 // 统计卡片子组件
-function StatCard({ title, value, color, icon }: { title: string; value: string | number; color: string; icon?: React.ReactNode }) {
+const StatCard = memo(function StatCard({ title, value, color, icon }: { title: string; value: string | number; color: string; icon?: React.ReactNode }) {
   return (
     <div className="card flex items-center gap-4">
       {icon && <div className={`p-3 rounded-lg`} style={{ backgroundColor: color + '20' }}>{icon}</div>}
@@ -32,10 +34,10 @@ function StatCard({ title, value, color, icon }: { title: string; value: string 
       </div>
     </div>
   );
-}
+});
 
 // 风险等级标签子组件
-function RiskBadge({ level }: { level: RiskLevel | string }) {
+const RiskBadge = memo(function RiskBadge({ level }: { level: RiskLevel | string }) {
   const label = RISK_LABELS[level] || RISK_LABELS['low'];
   const color = RISK_COLORS[level] || RISK_COLORS['low'];
   return (
@@ -43,10 +45,10 @@ function RiskBadge({ level }: { level: RiskLevel | string }) {
       {label}
     </span>
   );
-}
+});
 
 // 成本构成饼图
-function CostPieChart({ project }: { project: Project }) {
+const CostPieChart = memo(function CostPieChart({ project }: { project: Project }) {
   const data = [
     { name: '人工成本', value: project.laborCost },
     { name: '材料成本', value: project.materialCost },
@@ -80,10 +82,10 @@ function CostPieChart({ project }: { project: Project }) {
       </ResponsiveContainer>
     </div>
   );
-}
+});
 
 // 风险等级分布柱状图
-function RiskBarChart({ projects }: { projects: Project[] }) {
+const RiskBarChart = memo(function RiskBarChart({ projects }: { projects: Project[] }) {
   const data = useMemo(() => {
     const counts = { high: 0, medium: 0, low: 0 };
     projects.forEach(p => {
@@ -117,10 +119,10 @@ function RiskBarChart({ projects }: { projects: Project[] }) {
       </ResponsiveContainer>
     </div>
   );
-}
+});
 
-export default function Dashboard() {
-  const { projects, riskResults, riskStats, isLoading, fetchData } = useDataStore();
+export default function Dashboard({ onNavigate }: { onNavigate?: (page: string, params?: Record<string, string>) => void }) {
+  const { projects, riskResults, riskStats, isLoading, error, fetchData } = useDataStore();
   const [filterRisk, setFilterRisk] = useState<string>('all');
   const [searchText, setSearchText] = useState('');
 
@@ -154,6 +156,95 @@ export default function Dashboard() {
       </div>
     );
   }
+
+  if (error && projects.length === 0) {
+    return (
+      <div className="p-8">
+        <div className="card border-red-500 max-w-2xl">
+          <h2 className="text-xl font-bold text-red-400 mb-2">无法加载真实项目数据</h2>
+          <p className="text-gray-300">{error}</p>
+          <p className="text-gray-500 text-sm mt-3">请先在“数据提取”完成文件处理，再返回此页面刷新。</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isLoading && projects.length === 0) {
+    return (
+      <div className="p-8">
+        <div className="card max-w-2xl">
+          <h2 className="text-xl font-bold text-white mb-2">尚无可展示的项目数据</h2>
+          <p className="text-gray-400">请先扫描并提取项目文件。看板不会使用模拟数据填充结果。</p>
+        </div>
+      </div>
+    );
+  }
+
+  const projectColumns = [
+    { key: 'name', label: '项目名称', width: 200, align: 'left' as const },
+    {
+      key: 'contractAmount',
+      label: '合同金额',
+      width: 100,
+      align: 'right' as const,
+      renderCell: (_col: any, project: Project) => formatCurrency(project.contractAmount),
+    },
+    {
+      key: 'totalCost',
+      label: '总成本',
+      width: 100,
+      align: 'right' as const,
+      renderCell: (_col: any, project: Project) => formatCurrency(project.totalCost),
+    },
+    {
+      key: 'settlementAmount',
+      label: '结算收入',
+      width: 100,
+      align: 'right' as const,
+      renderCell: (_col: any, project: Project) => formatCurrency(project.settlementAmount),
+    },
+    {
+      key: 'estimatedProfitRate',
+      label: '预估毛利率',
+      width: 110,
+      align: 'right' as const,
+      renderCell: (_col: any, project: Project) => formatPercent(project.estimatedProfitRate),
+    },
+    {
+      key: 'actualProfitRate',
+      label: '实际毛利率',
+      width: 110,
+      align: 'right' as const,
+      renderCell: (_col: any, project: Project) => formatPercent(project.actualProfitRate),
+    },
+    {
+      key: 'riskLevel',
+      label: '风险等级',
+      width: 100,
+      align: 'center' as const,
+      renderCell: (_col: any, project: Project) => {
+        const risk = riskResults.find((r) => r.projectId === project.id);
+        return <RiskBadge level={risk?.overallRisk || project.riskLevel} />;
+      },
+    },
+    {
+      key: 'action',
+      label: '操作',
+      width: 120,
+      align: 'center' as const,
+      renderCell: (_col: any, project: Project) => (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onNavigate?.('risk-report', { projectId: project.id });
+          }}
+          className="px-3 py-1 bg-gray-700 text-gray-300 rounded hover:bg-gray-600 text-xs"
+        >
+          查看详情
+        </button>
+      ),
+    },
+  ];
 
   return (
     <div className="p-8">
@@ -252,57 +343,11 @@ export default function Dashboard() {
       <div className="card">
         <h3 className="text-lg font-semibold mb-4 text-white">项目列表</h3>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-700">
-                <th className="text-left py-3 px-4 text-gray-400 font-medium">项目名称</th>
-                <th className="text-right py-3 px-4 text-gray-400 font-medium">合同金额</th>
-                <th className="text-right py-3 px-4 text-gray-400 font-medium">总成本</th>
-                <th className="text-right py-3 px-4 text-gray-400 font-medium">结算收入</th>
-                <th className="text-right py-3 px-4 text-gray-400 font-medium">预估毛利率</th>
-                <th className="text-right py-3 px-4 text-gray-400 font-medium">实际毛利率</th>
-                <th className="text-center py-3 px-4 text-gray-400 font-medium">风险等级</th>
-                <th className="text-center py-3 px-4 text-gray-400 font-medium">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredProjects.map((project, i) => {
-                const risk = riskResults.find(r => r.projectId === project.id);
-                return (
-                  <tr key={i} className="border-b border-gray-700/50 hover:bg-gray-700/30">
-                    <td className="py-3 px-4 text-white font-medium">{project.name}</td>
-                    <td className="py-3 px-4 text-gray-300 text-right">{(project.contractAmount / 10000).toFixed(0)}万</td>
-                    <td className="py-3 px-4 text-gray-300 text-right">{(project.totalCost / 10000).toFixed(0)}万</td>
-                    <td className="py-3 px-4 text-gray-300 text-right">{(project.settlementAmount / 10000).toFixed(0)}万</td>
-                    <td className="py-3 px-4 text-gray-300 text-right">{(project.estimatedProfitRate * 100).toFixed(1)}%</td>
-                    <td className="py-3 px-4 text-gray-300 text-right">{(project.actualProfitRate * 100).toFixed(1)}%</td>
-                    <td className="py-3 px-4 text-center">
-                      <RiskBadge level={risk?.overallRisk || project.riskLevel} />
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <button
-                        onClick={() => {
-                          window.dispatchEvent(new CustomEvent('navigate', {
-                            detail: { page: 'risk-report', projectId: project.id },
-                          }));
-                        }}
-                        className="px-3 py-1 bg-gray-700 text-gray-300 rounded hover:bg-gray-600 text-xs"
-                      >
-                        查看详情
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-              {filteredProjects.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="py-8 text-center text-gray-500">
-                    无匹配项目
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          <VirtualTable
+            columns={projectColumns}
+            data={filteredProjects}
+            onRowClick={(project) => onNavigate?.('risk-report', { projectId: project.id })}
+          />
         </div>
       </div>
     </div>

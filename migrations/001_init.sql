@@ -30,7 +30,8 @@ CREATE TABLE IF NOT EXISTS parsed_contents (
     sheet_names TEXT,
     parse_duration_ms INTEGER,
     parsed_at TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE
+    FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
+    UNIQUE(file_id)
 );
 
 -- 抽取字段表
@@ -55,7 +56,49 @@ CREATE TABLE IF NOT EXISTS extracted_fields (
     extraction_duration_ms INTEGER,
     confidence_score REAL,
     extracted_at TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE
+    FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
+    UNIQUE(file_id)
+);
+
+-- 字段观察值：保留每个来源文件的自动抽取结果，不作为最终业务事实直接覆盖
+CREATE TABLE IF NOT EXISTS field_observations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    file_id INTEGER NOT NULL,
+    file_path TEXT NOT NULL,
+    field_key TEXT NOT NULL,
+    raw_value TEXT,
+    normalized_value TEXT,
+    confidence_score REAL,
+    source_excerpt TEXT,
+    review_status TEXT NOT NULL DEFAULT 'pending',
+    observed_at TEXT DEFAULT (datetime('now')),
+    reviewed_at TEXT,
+    FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
+    UNIQUE(file_id, field_key)
+);
+
+-- 字段复核决定：追加式审计记录，永不覆盖原始观察值
+CREATE TABLE IF NOT EXISTS field_decisions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    observation_id INTEGER NOT NULL,
+    decision TEXT NOT NULL,
+    decided_value TEXT,
+    note TEXT,
+    decided_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (observation_id) REFERENCES field_observations(id) ON DELETE CASCADE
+);
+
+-- 处理批次：记录处理范围、运行结果和所用模型/规则版本
+CREATE TABLE IF NOT EXISTS processing_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_type TEXT NOT NULL,
+    status TEXT NOT NULL,
+    total_count INTEGER DEFAULT 0,
+    succeeded_count INTEGER DEFAULT 0,
+    failed_count INTEGER DEFAULT 0,
+    metadata_json TEXT,
+    started_at TEXT DEFAULT (datetime('now')),
+    completed_at TEXT
 );
 
 -- ============================================
@@ -66,6 +109,7 @@ CREATE TABLE IF NOT EXISTS extracted_fields (
 CREATE TABLE IF NOT EXISTS projects (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
+    path TEXT,
     contract_no TEXT,
     contract_amount REAL DEFAULT 0,
     total_cost REAL DEFAULT 0,
@@ -85,6 +129,45 @@ CREATE TABLE IF NOT EXISTS projects (
     risk_level TEXT DEFAULT 'low',
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
+);
+
+-- 合同表
+CREATE TABLE IF NOT EXISTS contracts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER,
+    contract_no TEXT,
+    amount REAL,
+    party_a TEXT,
+    party_b TEXT,
+    sign_date TEXT,
+    file_path TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (project_id) REFERENCES projects(id)
+);
+
+-- 成本明细表
+CREATE TABLE IF NOT EXISTS cost_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER,
+    cost_type TEXT,
+    amount REAL,
+    supplier TEXT,
+    file_path TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (project_id) REFERENCES projects(id)
+);
+
+-- 结算表
+CREATE TABLE IF NOT EXISTS settlements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER,
+    settle_date TEXT,
+    amount REAL,
+    paid_amount REAL DEFAULT 0,
+    retention REAL DEFAULT 0,
+    file_path TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (project_id) REFERENCES projects(id)
 );
 
 -- 付款记录表
@@ -132,7 +215,11 @@ CREATE INDEX IF NOT EXISTS idx_files_path ON files(file_path);
 CREATE INDEX IF NOT EXISTS idx_parsed_contents_file_id ON parsed_contents(file_id);
 CREATE INDEX IF NOT EXISTS idx_extracted_fields_file_id ON extracted_fields(file_id);
 CREATE INDEX IF NOT EXISTS idx_extracted_fields_contract_no ON extracted_fields(contract_no);
+CREATE INDEX IF NOT EXISTS idx_field_observations_status ON field_observations(review_status);
+CREATE INDEX IF NOT EXISTS idx_field_observations_file_id ON field_observations(file_id);
+CREATE INDEX IF NOT EXISTS idx_field_decisions_observation_id ON field_decisions(observation_id);
 CREATE INDEX IF NOT EXISTS idx_projects_risk_level ON projects(risk_level);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_name_unique ON projects(name);
 CREATE INDEX IF NOT EXISTS idx_payments_project_id ON payments(project_id);
 CREATE INDEX IF NOT EXISTS idx_subcontractors_project_id ON subcontractors(project_id);
 CREATE INDEX IF NOT EXISTS idx_schedules_project_id ON schedules(project_id);

@@ -1,10 +1,13 @@
+import { memo } from 'react';
 import { Theme, Page } from './types';
 
 interface SidebarProps {
   currentPage: Page;
   theme: Theme;
+  collapsed: boolean;
   onNavigate: (page: Page) => void;
   onToggleTheme: () => void;
+  onToggleCollapsed: () => void;
 }
 
 const menuItems = [
@@ -72,6 +75,16 @@ const menuItems = [
     ),
   },
   {
+    id: 'diagnostics' as Page,
+    label: '运行诊断',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 3a1.5 1.5 0 00-1.5 1.5v.75a7.5 7.5 0 00-2.16 1.25l-.65-.38a1.5 1.5 0 00-2.05.55l-.75 1.3a1.5 1.5 0 00.55 2.05l.65.38a7.5 7.5 0 000 2.5l-.65.38a1.5 1.5 0 00-.55 2.05l.75 1.3a1.5 1.5 0 002.05.55l.65-.38a7.5 7.5 0 002.16 1.25v.75a1.5 1.5 0 001.5 1.5h1.5a1.5 1.5 0 001.5-1.5v-.75a7.5 7.5 0 002.16-1.25l.65.38a1.5 1.5 0 002.05-.55l.75-1.3a1.5 1.5 0 00-.55-2.05l-.65-.38a7.5 7.5 0 000-2.5l.65-.38a1.5 1.5 0 00.55-2.05l-.75-1.3a1.5 1.5 0 00-2.05-.55l-.65.38a7.5 7.5 0 00-2.16-1.25V4.5a1.5 1.5 0 00-1.5-1.5h-1.5z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15.75a3.75 3.75 0 100-7.5 3.75 3.75 0 000 7.5z" />
+      </svg>
+    ),
+  },
+  {
     id: 'test' as Page,
     label: '本地测试',
     icon: (
@@ -82,22 +95,24 @@ const menuItems = [
   },
 ];
 
-export default function Sidebar({ currentPage, theme, onNavigate, onToggleTheme }: SidebarProps) {
+const Sidebar = memo(function Sidebar({ currentPage, theme, collapsed, onNavigate, onToggleTheme, onToggleCollapsed }: SidebarProps) {
   return (
-    <aside className={`w-64 flex flex-col ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} border-r border-gray-700`}>
-      <div className="p-6">
+    <aside className={`flex flex-col transition-all duration-300 ${collapsed ? 'w-16' : 'w-64'} ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} border-r border-gray-700`}>
+      <div className={`p-6 transition-opacity duration-300 ${collapsed ? 'opacity-0 h-0 p-0 overflow-hidden' : ''}`}>
         <h1 className="text-xl font-bold text-primary">工程稽查系统</h1>
         <p className="text-sm text-gray-500 mt-1">数据去重 & 风险监控</p>
       </div>
 
-      <nav className="flex-1 px-4">
+      <nav className={`flex-1 ${collapsed ? 'px-2' : 'px-4'}`}>
         {/* 监控管理分组 */}
-        <div className="text-xs text-gray-500 uppercase tracking-wider px-3 mb-2 mt-2">监控管理</div>
+        <div className={`text-xs text-gray-500 uppercase tracking-wider px-3 mb-2 mt-2 transition-opacity duration-300 ${collapsed ? 'opacity-0 h-0 overflow-hidden' : ''}`}>监控管理</div>
         {menuItems.filter(m => ['dashboard', 'risk-report', 'data-network'].includes(m.id)).map(item => (
           <button
             key={item.id}
             onClick={() => onNavigate(item.id)}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-colors ${
+            className={`relative w-full flex items-center rounded-lg mb-1 transition-colors group ${
+              collapsed ? 'justify-center px-2 py-3' : 'gap-3 px-4 py-3'
+            } ${
               currentPage === item.id
                 ? 'bg-primary text-white'
                 : theme === 'dark'
@@ -106,17 +121,24 @@ export default function Sidebar({ currentPage, theme, onNavigate, onToggleTheme 
             }`}
           >
             {item.icon}
-            <span>{item.label}</span>
+            <span className={`transition-opacity duration-300 ${collapsed ? 'opacity-0 w-0 overflow-hidden' : ''}`}>{item.label}</span>
+            {collapsed && (
+              <span className={`absolute left-full ml-2 px-2 py-1 rounded text-xs whitespace-nowrap z-50 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity ${theme === 'dark' ? 'bg-gray-700 text-white' : 'bg-gray-800 text-white'}`}>
+                {item.label}
+              </span>
+            )}
           </button>
         ))}
 
         {/* 文件工具分组 */}
-        <div className="text-xs text-gray-500 uppercase tracking-wider px-3 mb-2 mt-6">文件工具</div>
+        <div className={`text-xs text-gray-500 uppercase tracking-wider px-3 mb-2 mt-6 transition-opacity duration-300 ${collapsed ? 'opacity-0 h-0 overflow-hidden' : ''}`}>文件工具</div>
         {menuItems.filter(m => !['dashboard', 'risk-report', 'data-network'].includes(m.id)).map(item => (
           <button
             key={item.id}
             onClick={() => onNavigate(item.id)}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-colors ${
+            className={`relative w-full flex items-center rounded-lg mb-1 transition-colors group ${
+              collapsed ? 'justify-center px-2 py-3' : 'gap-3 px-4 py-3'
+            } ${
               currentPage === item.id
                 ? 'bg-primary text-white'
                 : theme === 'dark'
@@ -125,15 +147,20 @@ export default function Sidebar({ currentPage, theme, onNavigate, onToggleTheme 
             }`}
           >
             {item.icon}
-            <span>{item.label}</span>
+            <span className={`transition-opacity duration-300 ${collapsed ? 'opacity-0 w-0 overflow-hidden' : ''}`}>{item.label}</span>
+            {collapsed && (
+              <span className={`absolute left-full ml-2 px-2 py-1 rounded text-xs whitespace-nowrap z-50 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity ${theme === 'dark' ? 'bg-gray-700 text-white' : 'bg-gray-800 text-white'}`}>
+                {item.label}
+              </span>
+            )}
           </button>
         ))}
       </nav>
 
-      <div className="p-4 border-t border-gray-700">
+      <div className={`border-t border-gray-700 ${collapsed ? 'p-2' : 'p-4'}`}>
         <button
           onClick={onToggleTheme}
-          className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-gray-400 hover:bg-gray-700 transition-colors"
+          className={`w-full flex items-center rounded-lg text-gray-400 hover:bg-gray-700 transition-colors ${collapsed ? 'justify-center px-2 py-2' : 'gap-3 px-4 py-2'}`}
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             {theme === 'dark' ? (
@@ -142,9 +169,26 @@ export default function Sidebar({ currentPage, theme, onNavigate, onToggleTheme 
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
             )}
           </svg>
-          <span>{theme === 'dark' ? '切换亮色' : '切换暗色'}</span>
+          <span className={`transition-opacity duration-300 ${collapsed ? 'opacity-0 w-0 overflow-hidden' : ''}`}>{theme === 'dark' ? '切换亮色' : '切换暗色'}</span>
+        </button>
+
+        <button
+          onClick={onToggleCollapsed}
+          className={`w-full flex items-center rounded-lg text-gray-400 hover:bg-gray-700 transition-colors mt-1 ${collapsed ? 'justify-center px-2 py-2' : 'gap-3 px-4 py-2'}`}
+          title={collapsed ? '展开侧边栏' : '收起侧边栏'}
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            {collapsed ? (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            )}
+          </svg>
+          <span className={`transition-opacity duration-300 ${collapsed ? 'opacity-0 w-0 overflow-hidden' : ''}`}>{collapsed ? '展开' : '收起'}</span>
         </button>
       </div>
     </aside>
   );
-}
+});
+
+export default Sidebar;

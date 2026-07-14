@@ -81,22 +81,31 @@ export function useSmartPolling(options: UsePollingOptions & {
   autoETL?: boolean;
 }) {
   const { onNewData, autoETL = true, ...pollingOptions } = options;
+  const lastSyncTimeRef = useRef<string | null>(null);
   
   const enhancedCallback = useCallback(async () => {
     // 执行原始回调
     await pollingOptions.callback();
     
     // 如果检测到新数据且启用自动ETL
-    if (autoETL && onNewData) {
-      console.log('[SmartPolling] 检测到新数据，触发ETL聚合...');
+    if (autoETL) {
+      console.log('[SmartPolling] 检查数据更新...');
       try {
         // 动态导入ETL模块
         const { aggregateToProjects } = await import('../shared/etl');
-        await aggregateToProjects();
-        console.log('[SmartPolling] ETL聚合完成');
+        const newSyncTime = await aggregateToProjects(lastSyncTimeRef.current || undefined);
         
-        // 触发数据刷新回调
-        await onNewData();
+        // 只在有新数据时触发刷新
+        if (newSyncTime !== lastSyncTimeRef.current) {
+          console.log('[SmartPolling] 检测到新数据，触发刷新');
+          lastSyncTimeRef.current = newSyncTime;
+
+          if (onNewData) {
+            await onNewData();
+          }
+        } else {
+          console.log('[SmartPolling] 无新数据更新');
+        }
       } catch (err) {
         console.error('[SmartPolling] ETL聚合失败:', err);
       }

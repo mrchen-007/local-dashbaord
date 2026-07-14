@@ -3,13 +3,36 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { open } from '@tauri-apps/api/dialog';
-import { fileParserService, FileManifest, ParseResult } from './fileParser';
+import { fileParserService, FileManifest, ManifestFile, ParseResult } from './fileParser';
 import { entityExtractorService, ExtractionResult } from './entityExtractor';
 import { databaseService, ProcessingStats } from '../shared/database';
 import { mapUIEFieldsToDB } from './fieldMapper';
 import { isTauri } from '../shared/environment';
+import { processInParallel, TaskResult } from '../shared/concurrency';
+import ProgressBar from '../shared/ProgressBar';
+import FieldReviewPanel from './FieldReviewPanel';
 
 type ProcessingStage = 'idle' | 'loading' | 'parsing' | 'extracting' | 'saving' | 'complete' | 'error';
+
+interface ProcessingSummary {
+  total: number;
+  succeeded: number;
+  failed: number;
+}
+
+interface ParsedFile {
+  manifestFile: ManifestFile;
+  result: ParseResult;
+}
+
+interface ExtractedFile {
+  parsedFile: ParsedFile;
+  result: ExtractionResult;
+}
+
+function successfulValues<T>(results: TaskResult<T>[]): T[] {
+  return results.filter((result): result is { ok: true; value: T } => result.ok).map(result => result.value);
+}
 
 export default function DataExtractionPage() {
   const [folderPath, setFolderPath] = useState<string>('');
@@ -18,6 +41,9 @@ export default function DataExtractionPage() {
   const [progress, setProgress] = useState({ current: 0, total: 0, message: '' });
   const [stats, setStats] = useState<ProcessingStats | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [concurrency, setConcurrency] = useState(5);
+  const [summary, setSummary] = useState<ProcessingSummary | null>(null);
+  const [reviewRefresh, setReviewRefresh] = useState(0);
 
   // 初始化数据库连接
   useEffect(() => {
@@ -76,96 +102,135 @@ export default function DataExtractionPage() {
 
     setError(null);
     const files = manifest.files;
+    await databaseService.batchUpsertFiles(files.map(file => ({
+      file_path: file.path,
+      file_name: file.path.split('\\').pop() || file.path.split('/').pop() || file.path,
+      file_size: file.size_bytes,
+      modified_time: file.modified_time,
+      file_hash: file.hash || undefined,
+      status: 'pending' as const,
+    })));
+    const runId = await databaseService.startProcessingRun('extraction', files.length, {
+      folderPath,
+      concurrency,
+    });
 
     // 阶段1：解析文件
     setStage('parsing');
     setProgress({ current: 0, total: files.length, message: '正在解析文件...' });
 
-    const parseResults: ParseResult[] = [];
-    for (let i = 0; i < files.length; i++) {
-      try {
-        const result = await fileParserService.parseDocument(files[i].path);
-        parseResults.push(result);
-      } catch (err) {
-        console.warn(`解析失败: ${files[i].path}`, err);
-      }
-      setProgress({ current: i + 1, total: files.length, message: `解析文件 ${i + 1}/${files.length}` });
-    }
+    const parseTaskResults = await processInParallel(
+      files,
+      async (manifestFile) => ({
+        manifestFile,
+        result: await fileParserService.parseDocument(manifestFile.path),
+      }),
+      concurrency,
+      (cur, total) => setProgress({ current: cur, total, message: `解析文件 ${cur}/${total}` })
+    );
+    const parsedFiles = successfulValues<ParsedFile>(parseTaskResults);
+    const parseFailures = parseTaskResults.filter(result => !result.ok);
+    await Promise.all(parseTaskResults.map((result, index) => result.ok
+      ? Promise.resolve()
+      : databaseService.updateFileStatus(files[index].path, 'error', result.error)
+    ));
 
     // 阶段2：抽取字段
     setStage('extracting');
-    setProgress({ current: 0, total: parseResults.length, message: '正在抽取字段...' });
+    setProgress({ current: 0, total: parsedFiles.length, message: '正在抽取字段...' });
 
-    const extractResults: ExtractionResult[] = [];
-    for (let i = 0; i < parseResults.length; i++) {
-      try {
-        const result = await entityExtractorService.extractFields(
-          parseResults[i].file_path,
-          parseResults[i].content
-        );
-        extractResults.push(result);
-      } catch (err) {
-        console.warn(`抽取失败: ${parseResults[i].file_path}`, err);
-      }
-      setProgress({ current: i + 1, total: parseResults.length, message: `抽取字段 ${i + 1}/${parseResults.length}` });
-    }
+    const extractionTaskResults = await processInParallel(
+      parsedFiles,
+      async (parsedFile) => ({
+        parsedFile,
+        result: await entityExtractorService.extractFields(parsedFile.result.file_path, parsedFile.result.content),
+      }),
+      concurrency,
+      (cur, total) => setProgress({ current: cur, total, message: `抽取字段 ${cur}/${total}` })
+    );
+    const extractedFiles = successfulValues<ExtractedFile>(extractionTaskResults);
+    const extractionFailures = extractionTaskResults.filter(result => !result.ok);
+    await Promise.all(extractionTaskResults.map((result, index) => result.ok
+      ? Promise.resolve()
+      : databaseService.updateFileStatus(parsedFiles[index].manifestFile.path, 'error', result.error)
+    ));
 
     // 阶段3：保存到数据库
     setStage('saving');
-    setProgress({ current: 0, total: extractResults.length, message: '正在保存数据...' });
+    setProgress({ current: 0, total: extractedFiles.length, message: '正在保存数据...' });
 
-    for (let i = 0; i < extractResults.length; i++) {
-      try {
-        const r = extractResults[i];
+    const saveTaskResults = await processInParallel(
+      extractedFiles,
+      async ({ parsedFile, result }) => {
         const fileId = await databaseService.upsertFile({
-          file_path: r.file_path,
-          file_name: r.file_path.split('\\').pop() || r.file_path.split('/').pop() || r.file_path,
-          file_size: 0,
-          modified_time: '',
+          file_path: parsedFile.manifestFile.path,
+          file_name: parsedFile.manifestFile.path.split('\\').pop() || parsedFile.manifestFile.path.split('/').pop() || parsedFile.manifestFile.path,
+          file_size: parsedFile.manifestFile.size_bytes,
+          modified_time: parsedFile.manifestFile.modified_time,
           status: 'extracted',
         });
 
         await databaseService.saveParsedContent({
           file_id: fileId,
-          file_path: r.file_path,
-          content_text: JSON.stringify(r.fields),
-          parse_duration_ms: r.duration_ms,
+          file_path: parsedFile.manifestFile.path,
+          content_text: parsedFile.result.content,
+          content_metadata: JSON.stringify(parsedFile.result.metadata),
+          parse_duration_ms: parsedFile.result.duration_ms,
         });
 
-        const mappedFields = mapUIEFieldsToDB(r.fields);
+        const mappedFields = mapUIEFieldsToDB(result.fields);
         if (Object.keys(mappedFields).length > 0) {
           await databaseService.saveExtractedFields({
-            file_id: fileId,
-            file_path: r.file_path,
-            contract_no: mappedFields.contract_no as string,
-            contract_amount: mappedFields.contract_amount as number,
-            party_a: mappedFields.party_a as string,
-            party_b: mappedFields.party_b as string,
-            sign_date: mappedFields.sign_date as string,
-            labor_cost: mappedFields.labor_cost as number,
-            material_cost: mappedFields.material_cost as number,
-            equipment_cost: mappedFields.equipment_cost as number,
-            subcontract_amount: mappedFields.subcontract_amount as number,
-            settlement_amount: mappedFields.settlement_amount as number,
-            settlement_date: mappedFields.settlement_date as string,
-            warranty_ratio: mappedFields.warranty_ratio as number,
-            extraction_duration_ms: r.duration_ms,
-            confidence_score: r.confidence,
+              file_id: fileId,
+              file_path: parsedFile.manifestFile.path,
+              contract_no: mappedFields.contract_no as string,
+              contract_amount: mappedFields.contract_amount as number,
+              party_a: mappedFields.party_a as string,
+              party_b: mappedFields.party_b as string,
+              sign_date: mappedFields.sign_date as string,
+              labor_cost: mappedFields.labor_cost as number,
+              material_cost: mappedFields.material_cost as number,
+              equipment_cost: mappedFields.equipment_cost as number,
+              subcontract_amount: mappedFields.subcontract_amount as number,
+              settlement_amount: mappedFields.settlement_amount as number,
+              settlement_date: mappedFields.settlement_date as string,
+              warranty_ratio: mappedFields.warranty_ratio as number,
+              extraction_duration_ms: result.duration_ms,
+              confidence_score: result.confidence,
           });
         }
-      } catch (err) {
-        console.warn(`保存失败: ${extractResults[i].file_path}`, err);
-      }
-      setProgress({ current: i + 1, total: extractResults.length, message: `保存数据 ${i + 1}/${extractResults.length}` });
-    }
+        await databaseService.saveFieldObservations(
+          fileId,
+          parsedFile.manifestFile.path,
+          result.fields,
+          mappedFields,
+          result.confidence,
+          parsedFile.result.content.slice(0, 500)
+        );
+      },
+      10,
+      (cur, total) => setProgress({ current: cur, total, message: `保存数据 ${cur}/${total}` })
+    );
 
-    setStage('complete');
-    setProgress({ current: extractResults.length, total: extractResults.length, message: '处理完成' });
+    const saveFailures = saveTaskResults.filter(result => !result.ok);
+    await Promise.all(saveTaskResults.map((result, index) => result.ok
+      ? Promise.resolve()
+      : databaseService.updateFileStatus(extractedFiles[index].parsedFile.manifestFile.path, 'error', result.error)
+    ));
+
+    const failed = parseFailures.length + extractionFailures.length + saveFailures.length;
+    const succeeded = saveTaskResults.filter(result => result.ok).length;
+    await databaseService.completeProcessingRun(runId, succeeded, failed);
+    setReviewRefresh(value => value + 1);
+    setSummary({ total: files.length, succeeded, failed });
+    setStage(failed === files.length ? 'error' : 'complete');
+    setProgress({ current: succeeded + failed, total: files.length, message: failed === 0 ? '处理完成' : '处理部分完成' });
+    if (failed > 0) setError(`处理完成但有 ${failed} 个文件失败；可在统计卡片中查看错误数量后重试。`);
 
     // 刷新统计
     const s = await databaseService.getProcessingStats();
     setStats(s);
-  }, [manifest]);
+  }, [manifest, concurrency]);
 
   return (
     <div className="p-8">
@@ -278,7 +343,19 @@ export default function DataExtractionPage() {
               </tbody>
             </table>
           </div>
-          <div className="mt-4">
+          <div className="mt-4 flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-400">并发数: {concurrency}</label>
+              <input
+                type="range"
+                min={1}
+                max={10}
+                value={concurrency}
+                onChange={(e) => setConcurrency(Number(e.target.value))}
+                disabled={stage === 'parsing' || stage === 'extracting' || stage === 'saving'}
+                className="w-32 accent-primary"
+              />
+            </div>
             <button
               onClick={handleProcessAll}
               disabled={stage === 'parsing' || stage === 'extracting' || stage === 'saving'}
@@ -292,18 +369,12 @@ export default function DataExtractionPage() {
 
       {/* 进度 */}
       {stage !== 'idle' && stage !== 'complete' && stage !== 'error' && (
-        <div className="card mb-6">
-          <div className="flex justify-between text-sm mb-2">
-            <span className="text-gray-400">{progress.message}</span>
-            <span className="text-gray-400">{progress.current}/{progress.total}</span>
-          </div>
-          <div className="w-full bg-gray-700 rounded-full h-2">
-            <div
-              className="bg-primary h-2 rounded-full transition-all"
-              style={{ width: `${progress.total > 0 ? (progress.current / progress.total) * 100 : 0}%` }}
-            />
-          </div>
-        </div>
+        <ProgressBar
+          current={progress.current}
+          total={progress.total}
+          message={progress.message}
+          label={`${progress.current}/${progress.total}`}
+        />
       )}
 
       {/* 错误 */}
@@ -320,20 +391,15 @@ export default function DataExtractionPage() {
             <svg className="w-6 h-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span className="text-green-400 font-medium">处理完成！所有文件已解析、抽取并保存到数据库</span>
+            <span className="text-green-400 font-medium">
+              处理完成：成功 {summary?.succeeded ?? 0} 个，共 {summary?.total ?? 0} 个文件
+              {summary && summary.failed > 0 ? `；失败 ${summary.failed} 个` : ''}
+            </span>
           </div>
         </div>
       )}
 
-      {/* 抽取结果预览 */}
-      {stage === 'complete' && (
-        <div className="card">
-          <h3 className="text-lg font-semibold mb-4 text-white">抽取结果预览</h3>
-          <div className="text-sm text-gray-400">
-            已完成的抽取结果可通过数据库查询获取完整数据
-          </div>
-        </div>
-      )}
+      <FieldReviewPanel refreshKey={reviewRefresh} />
     </div>
   );
 }

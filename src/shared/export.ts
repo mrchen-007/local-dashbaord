@@ -3,8 +3,7 @@
 
 import * as XLSX from 'xlsx';
 import { DuplicateGroup, FileVersion } from './types';
-import { formatFileSize } from '../deduplication/deduplication';
-import { formatTimestamp } from '../deduplication/versionManager';
+import { formatFileSize, formatTimestamp } from './format';
 
 /**
  * 获取匹配类型标签

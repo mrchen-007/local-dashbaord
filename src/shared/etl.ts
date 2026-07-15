@@ -1,6 +1,6 @@
 // ETL 聚合脚本
 // 从 extracted_fields 聚合数据到 projects 表
-// 打通数据流，替代 mockData
+// 从已确认的字段观察聚合项目数据。
 
 import { dbExecute as executeSql, dbSelect as selectSql } from '../api/tauriApi';
 

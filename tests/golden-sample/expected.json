@@ -1,14 +1,25 @@
 {
   "schema_version": 1,
-  "status": "awaiting-sanitized-sample",
-  "notes": "在引入脱敏真实样本后填写 files、projects 与 confirmed_fields。",
+  "status": "verified-real-sample",
+  "sample_directory": "D:\\02.chenwenke2024\\09.联营项目\\019榆横工业区废渣处置场三期项目一阶段工程施工",
+  "notes": "Sprint 6 real-sample parser evidence. Unsupported formats and parser failures are retained explicitly; no AI-extracted value is marked confirmed.",
   "files": {
-    "total": null,
-    "duplicates": null,
-    "parse_success_min": null
+    "total": 145,
+    "duplicates": 0,
+    "parse_success_min": 100
+  },
+  "parse": {
+    "success": 100,
+    "failed": 5,
+    "unsupported": 40
   },
   "projects": {
-    "count": null
+    "count": 0,
+    "database_e2e_verified": false
   },
-  "confirmed_fields": []
+  "confirmed_fields": [],
+  "report_exports": {
+    "count": 0,
+    "e2e_verified": false
+  }
 }

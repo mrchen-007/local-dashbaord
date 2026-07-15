@@ -105,3 +105,37 @@ pm run build\ 通过
 ---
 
 **总结**: 所有7个Sprint的TypeScript代码已完成并编译成功。Rust后端需要验证编译，然后即可进行完整的功能测试。
+
+---
+
+## Sprint 6 真实脱敏样本验收（2026-07-15）
+
+本轮已使用脱敏样本目录执行只读扫描与解析验收，并将逐文件结果固化到 `tests/golden-sample/actual.json`。验收结果：总文件 145，解析成功 100，解析失败 5，明确不支持 40。失败和不支持格式均保留为显式结果，未伪装为成功。
+
+已通过的验证命令：
+- `npm.cmd run build`
+- `npm.cmd test -- --run`
+- `npm.cmd run verify:golden`
+- `cargo test --offline --manifest-path src-tauri/Cargo.toml`
+- `cargo check --offline --manifest-path src-tauri/Cargo.toml`
+- `python -m compileall -q python`
+- `git diff --check`
+
+当前仍未在可启动 Tauri 桌面窗口中完成数据库写入、UI 全链路、AI 抽取、台账重建、风险重算和 Excel/Word 报告导出验收；因此项目不能宣称业务闭环已全部完成。
+
+---
+
+## Sprint 6 真实脱敏样本验收（2026-07-15）
+
+本轮已使用脱敏样本目录执行只读扫描与解析验收，并将逐文件结果固化到 `tests/golden-sample/actual.json`。验收结果：总文件 145，解析成功 100，解析失败 5，明确不支持 40。失败和不支持格式均保留为显式结果，未伪装为成功。
+
+已通过的验证命令：
+- `npm.cmd run build`
+- `npm.cmd test -- --run`
+- `npm.cmd run verify:golden`
+- `cargo test --offline --manifest-path src-tauri/Cargo.toml`
+- `cargo check --offline --manifest-path src-tauri/Cargo.toml`
+- `python -m compileall -q python`
+- `git diff --check`
+
+当前仍未在可启动 Tauri 桌面窗口中完成数据库写入、UI 全链路、AI 抽取、台账重建、风险重算和 Excel/Word 报告导出验收；因此项目不能宣称业务闭环已全部完成。

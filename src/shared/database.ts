@@ -82,6 +82,21 @@ export interface FieldObservation {
   reviewed_at?: string;
 }
 
+export interface ProjectFieldObservation {
+  id: number;
+  project_id: number;
+  project_file_id: number;
+  field_key: string;
+  raw_value?: string;
+  normalized_value?: string;
+  confidence_score?: number;
+  source_excerpt?: string;
+  review_status: FieldReviewStatus;
+  observed_at: string;
+  reviewed_at?: string;
+  file_path: string;
+}
+
 export interface ProcessingRun {
   id: number;
   run_type: string;
@@ -119,8 +134,8 @@ export class DatabaseService {
       // 使用 tauri-plugin-sql 连接 SQLite
       this.db = await DatabaseBridge.load('sqlite:dedup_tool.db');
       
-      // 创建表结构
-      await this.createTables();
+      // Rust 在每次打开连接时执行 migrations/ 中尚未应用的增量迁移。
+      void this.createTables;
     } catch (error) {
       throw new Error(`数据库初始化失败: ${error}`);
     }
@@ -595,6 +610,73 @@ export class DatabaseService {
     );
     await this.db.execute(
       `UPDATE field_observations SET review_status = $1,
+       normalized_value = COALESCE($2, normalized_value), reviewed_at = datetime('now') WHERE id = $3`,
+      [status, decidedValue, observationId]
+    );
+  }
+
+  async saveProjectFieldObservations(
+    projectId: number,
+    filePath: string,
+    fields: Record<string, unknown>,
+    mappedFields: Record<string, unknown>,
+    confidence: number,
+    sourceExcerpt: string
+  ): Promise<void> {
+    if (!this.db) throw new Error('数据库未初始化');
+    const projectFiles = await this.db.select<{ id: number }>(
+      'SELECT id FROM project_files WHERE project_id = $1 AND absolute_path = $2',
+      [projectId, filePath]
+    );
+    const projectFile = projectFiles[0];
+    if (!projectFile) throw new Error('文件不属于当前项目，请先重新扫描项目资料');
+
+    const keyMap: Record<string, string> = {
+      '合同编号': 'contract_no', '合同总金额': 'contract_amount', '甲方': 'party_a', '乙方': 'party_b',
+      '签约日期': 'sign_date', '签订日期': 'sign_date', '人工成本': 'labor_cost', '材料成本': 'material_cost',
+      '设备成本': 'equipment_cost', '分包金额': 'subcontract_amount', '结算金额': 'settlement_amount',
+      '结算日期': 'settlement_date', '质保金比例': 'warranty_ratio',
+    };
+
+    for (const [rawKey, rawValue] of Object.entries(fields)) {
+      const fieldKey = keyMap[rawKey];
+      if (!fieldKey || rawValue === null || rawValue === undefined || rawValue === '') continue;
+      const normalized = mappedFields[fieldKey];
+      await this.db.execute(
+        `INSERT INTO project_field_observations (project_id, project_file_id, field_key, raw_value, normalized_value, confidence_score, source_excerpt, review_status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
+         ON CONFLICT(project_file_id, field_key) DO UPDATE SET raw_value = excluded.raw_value,
+         normalized_value = excluded.normalized_value, confidence_score = excluded.confidence_score,
+         source_excerpt = excluded.source_excerpt, review_status = 'pending', observed_at = datetime('now'), reviewed_at = NULL`,
+        [projectId, projectFile.id, fieldKey, String(rawValue), normalized == null ? null : String(normalized), confidence, sourceExcerpt]
+      );
+    }
+  }
+
+  async getProjectFieldObservations(projectId: number, status?: FieldReviewStatus): Promise<ProjectFieldObservation[]> {
+    if (!this.db) throw new Error('数据库未初始化');
+    return this.db.select<ProjectFieldObservation>(
+      `SELECT pfo.*, pf.absolute_path AS file_path FROM project_field_observations pfo
+       JOIN project_files pf ON pf.id = pfo.project_file_id
+       WHERE pfo.project_id = $1 ${status ? 'AND pfo.review_status = $2' : ''}
+       ORDER BY pfo.observed_at DESC, pfo.id DESC`,
+      status ? [projectId, status] : [projectId]
+    );
+  }
+
+  async reviewProjectFieldObservation(
+    observationId: number,
+    status: Exclude<FieldReviewStatus, 'pending' | 'conflicted'>,
+    decidedValue?: string,
+    note?: string
+  ): Promise<void> {
+    if (!this.db) throw new Error('数据库未初始化');
+    await this.db.execute(
+      'INSERT INTO project_field_decisions (observation_id, decision, decided_value, note) VALUES ($1, $2, $3, $4)',
+      [observationId, status, decidedValue, note]
+    );
+    await this.db.execute(
+      `UPDATE project_field_observations SET review_status = $1,
        normalized_value = COALESCE($2, normalized_value), reviewed_at = datetime('now') WHERE id = $3`,
       [status, decidedValue, observationId]
     );

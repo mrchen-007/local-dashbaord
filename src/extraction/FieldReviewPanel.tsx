@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
-import { databaseService, FieldObservation } from '../shared/database';
+import { databaseService, ProjectFieldObservation } from '../shared/database';
+import { useCurrentProject } from '../projects/ProjectContext';
 
 interface FieldReviewPanelProps {
   refreshKey: number;
 }
 
 export default function FieldReviewPanel({ refreshKey }: FieldReviewPanelProps) {
-  const [items, setItems] = useState<FieldObservation[]>([]);
+  const { currentProject } = useCurrentProject();
+  const [items, setItems] = useState<ProjectFieldObservation[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -14,25 +16,25 @@ export default function FieldReviewPanel({ refreshKey }: FieldReviewPanelProps) 
     setIsLoading(true);
     try {
       await databaseService.initialize();
-      setItems(await databaseService.getFieldObservations('pending'));
+      setItems(currentProject ? await databaseService.getProjectFieldObservations(currentProject.id, 'pending') : []);
       setError(null);
     } catch (loadError) {
       setError(`加载待复核字段失败：${loadError instanceof Error ? loadError.message : String(loadError)}`);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [currentProject]);
 
   useEffect(() => {
     void load();
   }, [load, refreshKey]);
 
-  const review = useCallback(async (item: FieldObservation, decision: 'confirmed' | 'rejected') => {
+  const review = useCallback(async (item: ProjectFieldObservation, decision: 'confirmed' | 'rejected') => {
     const value = decision === 'confirmed'
       ? window.prompt(`确认“${item.field_key}”的标准值`, item.normalized_value ?? item.raw_value ?? '')
       : undefined;
     if (decision === 'confirmed' && value === null) return;
-    await databaseService.reviewFieldObservation(item.id, decision, value ?? undefined);
+    await databaseService.reviewProjectFieldObservation(item.id, decision, value ?? undefined);
     await load();
   }, [load]);
 
@@ -50,7 +52,8 @@ export default function FieldReviewPanel({ refreshKey }: FieldReviewPanelProps) 
 
       {error && <p className="text-red-400 mb-3">{error}</p>}
       {isLoading && <p className="text-gray-400">正在加载复核队列…</p>}
-      {!isLoading && items.length === 0 && <p className="text-gray-500">暂无待复核字段。</p>}
+      {!currentProject && <p className="text-amber-300">请先在项目中心选择项目。</p>}
+      {currentProject && !isLoading && items.length === 0 && <p className="text-gray-500">暂无待复核字段。</p>}
 
       {!isLoading && items.length > 0 && (
         <div className="max-h-96 overflow-y-auto space-y-3">

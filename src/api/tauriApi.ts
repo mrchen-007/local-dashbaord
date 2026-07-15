@@ -84,6 +84,54 @@ export interface FileOperationResult {
   items: FileOperationItem[];
 }
 
+export type ProjectStatus = 'draft' | 'scanning' | 'extracting' | 'reviewing' | 'ready' | 'archived';
+
+export interface ProjectRecord {
+  id: number;
+  code?: string;
+  name: string;
+  sourceRoot?: string;
+  owner?: string;
+  status: ProjectStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateProjectInput {
+  code?: string;
+  name: string;
+  owner?: string;
+}
+
+export interface UpdateProjectInput {
+  code?: string;
+  name?: string;
+  owner?: string;
+  status?: ProjectStatus;
+}
+
+export interface ProjectScanResult {
+  taskId: number;
+  files: ScanDirectoryResult['files'];
+  totalCount: number;
+  totalSize: number;
+}
+
+export interface ProjectFileRecord {
+  id: number;
+  projectId: number;
+  absolutePath: string;
+  relativePath: string;
+  fileName: string;
+  extension: string;
+  fileSize: number;
+  modifiedTime: string;
+  contentHash?: string;
+  scanStatus: string;
+  parseStatus: string;
+  errorMessage?: string;
+}
+
 // ==================== 错误处理工具 ====================
 
 function extractErrorMessage(error: unknown): string {
@@ -253,6 +301,66 @@ export async function updateFileManifest(
   );
 }
 
+export async function listProjects(): Promise<ProjectRecord[]> {
+  return withRetry(
+    () => invoke<ProjectRecord[]>('list_projects'),
+    '加载项目列表失败'
+  );
+}
+
+export async function getProject(id: number): Promise<ProjectRecord | null> {
+  return withRetry(
+    () => invoke<ProjectRecord | null>('get_project', { id }),
+    '加载项目失败'
+  );
+}
+
+export async function createProject(input: CreateProjectInput): Promise<ProjectRecord> {
+  return withRetry(
+    () => invoke<ProjectRecord>('create_project', { input }),
+    '创建项目失败'
+  );
+}
+
+export async function updateProject(id: number, input: UpdateProjectInput): Promise<ProjectRecord> {
+  return withRetry(
+    () => invoke<ProjectRecord>('update_project', { id, input }),
+    '更新项目失败'
+  );
+}
+
+export async function bindProjectDirectory(id: number, sourceRoot: string): Promise<ProjectRecord> {
+  return withRetry(
+    () => invoke<ProjectRecord>('bind_project_directory', { id, sourceRoot }),
+    '绑定资料目录失败'
+  );
+}
+
+export async function archiveProject(id: number): Promise<ProjectRecord> {
+  return withRetry(
+    () => invoke<ProjectRecord>('archive_project', { id }),
+    '归档项目失败'
+  );
+}
+
+export async function scanProject(projectId: number, recursive: boolean): Promise<ProjectScanResult> {
+  const result = await withRetry(
+    () => invoke<ProjectScanResult>('scan_project', { projectId, recursive }),
+    '扫描项目资料失败'
+  );
+  return {
+    ...result,
+    files: result.files.map((file) => ({ ...file, isDir: false })),
+  };
+}
+
+export async function listProjectFiles(projectId: number, limit = 200): Promise<ProjectFileRecord[]> {
+  return withRetry(
+    () => invoke<ProjectFileRecord[]>('list_project_files', { projectId, limit }),
+    '读取项目文件失败'
+  );
+}
+
 /**
  * 执行 SQL 写操作
  */
@@ -289,6 +397,14 @@ export const tauriApi = {
   moveToBackup,
   restoreFromBackup,
   checkUieService,
+  listProjects,
+  getProject,
+  createProject,
+  updateProject,
+  bindProjectDirectory,
+  archiveProject,
+  scanProject,
+  listProjectFiles,
   dbExecute,
   dbSelect,
   updateFileManifest,

@@ -2,7 +2,6 @@
 // 用于从文件清单中提取数据并存入数据库
 
 import { useState, useEffect, useCallback } from 'react';
-import { open } from '@tauri-apps/api/dialog';
 import { fileParserService, FileManifest, ManifestFile, ParseResult } from './fileParser';
 import { entityExtractorService, ExtractionResult } from './entityExtractor';
 import { databaseService, ProcessingStats } from '../shared/database';
@@ -11,6 +10,8 @@ import { isTauri } from '../shared/environment';
 import { processInParallel, TaskResult } from '../shared/concurrency';
 import ProgressBar from '../shared/ProgressBar';
 import FieldReviewPanel from './FieldReviewPanel';
+import { useCurrentProject } from '../projects/ProjectContext';
+import { projectFileService } from '../projects/projectFileService';
 
 type ProcessingStage = 'idle' | 'loading' | 'parsing' | 'extracting' | 'saving' | 'complete' | 'error';
 
@@ -35,6 +36,7 @@ function successfulValues<T>(results: TaskResult<T>[]): T[] {
 }
 
 export default function DataExtractionPage() {
+  const { currentProject } = useCurrentProject();
   const [folderPath, setFolderPath] = useState<string>('');
   const [manifest, setManifest] = useState<FileManifest | null>(null);
   const [stage, setStage] = useState<ProcessingStage>('idle');
@@ -59,34 +61,19 @@ export default function DataExtractionPage() {
     init();
   }, []);
 
-  // 选择文件夹
-  const handleSelectFolder = useCallback(async () => {
-    try {
-      const selected = await open({
-        directory: true,
-        multiple: false,
-        title: '选择扫描文件夹',
-      });
-      if (selected && typeof selected === 'string') {
-        setFolderPath(selected);
-        setManifest(null);
-        setStage('idle');
-        setError(null);
-      }
-    } catch (err) {
-      console.error('选择文件夹失败:', err);
-    }
-  }, []);
-
-  // 加载文件清单
   const handleLoadManifest = useCallback(async () => {
-    if (!folderPath) return;
+    if (!currentProject?.sourceRoot) {
+      setError('请先在项目中心选择项目并完成资料目录扫描。');
+      return;
+    }
 
     setStage('loading');
     setError(null);
 
     try {
-      const m = await fileParserService.loadManifest(folderPath);
+      const files = await projectFileService.list(currentProject.id, 10_000);
+      const m: FileManifest = { scan_time: new Date().toISOString(), folder_path: currentProject.sourceRoot, files: files.map(file => ({ path: file.absolutePath, size_bytes: file.fileSize, modified_time: file.modifiedTime, hash: file.contentHash || '' })) };
+      setFolderPath(currentProject.sourceRoot);
       setManifest(m);
       setProgress({ current: 0, total: m.files.length, message: `发现 ${m.files.length} 个文件` });
       setStage('idle');
@@ -94,11 +81,11 @@ export default function DataExtractionPage() {
       setError(`加载文件清单失败: ${err}`);
       setStage('error');
     }
-  }, [folderPath]);
+  }, [currentProject]);
 
   // 执行完整处理流程：解析 → 抽取 → 保存
   const handleProcessAll = useCallback(async () => {
-    if (!manifest || manifest.files.length === 0) return;
+    if (!manifest || manifest.files.length === 0 || !currentProject) return;
 
     setError(null);
     const files = manifest.files;
@@ -199,8 +186,8 @@ export default function DataExtractionPage() {
               confidence_score: result.confidence,
           });
         }
-        await databaseService.saveFieldObservations(
-          fileId,
+        await databaseService.saveProjectFieldObservations(
+          currentProject.id,
           parsedFile.manifestFile.path,
           result.fields,
           mappedFields,
@@ -230,7 +217,7 @@ export default function DataExtractionPage() {
     // 刷新统计
     const s = await databaseService.getProcessingStats();
     setStats(s);
-  }, [manifest, concurrency]);
+  }, [manifest, concurrency, currentProject]);
 
   return (
     <div className="p-8">
@@ -265,14 +252,8 @@ export default function DataExtractionPage() {
             className="flex-1 p-2 rounded bg-gray-800 border border-gray-700 text-gray-300"
           />
           <button
-            onClick={handleSelectFolder}
-            className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600"
-          >
-            选择目录
-          </button>
-          <button
             onClick={handleLoadManifest}
-            disabled={!folderPath}
+            disabled={!currentProject?.sourceRoot}
             className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:opacity-50"
           >
             加载清单

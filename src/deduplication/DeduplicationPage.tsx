@@ -3,12 +3,11 @@ import { ScanConfig, DuplicateGroup, MatchMode, ScanProgress, FileInfo } from '.
 import { DeduplicationEngine, calculateDuplicateRate } from './deduplication';
 import { formatFileSize } from '../shared/format';
 import { exportDuplicateReport } from '../shared/export';
-import { databaseService } from '../shared/database';
 import ProgressBar from '../shared/ProgressBar';
-import { moveToBackup, updateFileManifest } from '../api/tauriApi';
-
-// 检测是否在 Tauri 桌面环境中运行
-const isTauri = () => typeof window !== 'undefined' && (window as any).__TAURI_IPC__ !== undefined;
+import { moveToBackup } from '../api/tauriApi';
+import { isTauri } from '../shared/environment';
+import { useCurrentProject } from '../projects/ProjectContext';
+import { projectFileService } from '../projects/projectFileService';
 
 // 浏览器模式下使用 webkitdirectory 属性（非标准，需类型断言）
 const webkitDirProps = { webkitdirectory: '' } as any;
@@ -19,6 +18,7 @@ interface DeduplicationPageProps {
 }
 
 export default function DeduplicationPage({ config, onUpdateConfig }: DeduplicationPageProps) {
+  const { currentProject } = useCurrentProject();
   const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([]);
   const [progress, setProgress] = useState<ScanProgress | null>(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -33,21 +33,7 @@ export default function DeduplicationPage({ config, onUpdateConfig }: Deduplicat
   // 选择扫描文件夹（兼容 Tauri 和浏览器）
   const handleSelectFolder = useCallback(async () => {
     if (isTauri()) {
-      // Tauri 环境下使用原生对话框
-      const { open } = await import('@tauri-apps/api/dialog');
-      try {
-        const selected = await open({
-          directory: true,
-          multiple: false,
-          title: '选择要扫描的文件夹',
-        });
-        if (selected && typeof selected === 'string') {
-          setScanPath(selected);
-        }
-      } catch (err) {
-        console.error('选择文件夹失败:', err);
-        alert('选择文件夹失败，请重试');
-      }
+      alert('请先在项目中心选择项目并绑定资料目录。');
     } else {
       // 浏览器模式：触发隐藏的 <input type="file" webkitdirectory>
       folderInputRef.current?.click();
@@ -70,7 +56,12 @@ export default function DeduplicationPage({ config, onUpdateConfig }: Deduplicat
 
   // 开始扫描（兼容 Tauri 和浏览器）
   const startScan = useCallback(async () => {
-    if (!scanPath) {
+    const selectedProject = currentProject;
+    if (isTauri() && (!selectedProject || !selectedProject.sourceRoot)) {
+      alert('请先在项目中心选择项目并绑定资料目录。');
+      return;
+    }
+    if (!isTauri() && !scanPath) {
       alert('请先选择要扫描的文件夹');
       return;
     }
@@ -83,8 +74,10 @@ export default function DeduplicationPage({ config, onUpdateConfig }: Deduplicat
       let files: FileInfo[] = [];
 
       if (isTauri()) {
-        // ======== Tauri 桌面模式 ========
-        const { invoke } = await import('@tauri-apps/api/tauri');
+        if (!selectedProject?.sourceRoot) {
+          throw new Error('当前项目未绑定资料目录');
+        }
+        // ======== Tauri 桌面模式：只扫描当前项目已绑定的资料目录 ========
         setProgress({
           currentFile: '正在扫描目录...',
           processedCount: 0,
@@ -93,22 +86,9 @@ export default function DeduplicationPage({ config, onUpdateConfig }: Deduplicat
           status: 'scanning',
         });
 
-        const scanResult = await invoke<any>('scan_directory', {
-          path: scanPath,
-          recursive: config.recursive,
-        });
-
-        files = (scanResult.files || [])
-          .filter((f: any) => !f.is_dir)
-          .map((f: any) => ({
-            path: f.path,
-            name: f.name,
-            size: f.size,
-            modified: f.modified,
-            created: f.created,
-            isDir: f.is_dir,
-            extension: f.extension,
-          }));
+        const scanResult = await projectFileService.scan(selectedProject.id, config.recursive);
+        files = scanResult.files;
+        setScanPath(selectedProject.sourceRoot);
       } else {
         // ======== 浏览器模式 ========
         setProgress({
@@ -164,7 +144,6 @@ export default function DeduplicationPage({ config, onUpdateConfig }: Deduplicat
 
       setDuplicateGroups(groups);
 
-      // === 写入 SQLite files 表（仅 Tauri 模式） ===
       if (isTauri()) {
         setProgress({
           currentFile: '正在保存文件记录到数据库...',
@@ -174,44 +153,7 @@ export default function DeduplicationPage({ config, onUpdateConfig }: Deduplicat
           status: 'hashing',
         });
 
-        try {
-          await databaseService.initialize();
-          const fileRecords = files.map(f => ({
-            file_path: f.path,
-            file_name: f.name,
-            file_size: f.size,
-            modified_time: new Date(f.modified * 1000).toISOString(),
-            file_hash: '',
-            status: 'pending' as const,
-          }));
-
-          setProgress({
-            currentFile: '正在保存文件记录到数据库...',
-            processedCount: 90,
-            totalCount: 100,
-            percentage: 90,
-            status: 'hashing',
-          });
-
-          await databaseService.batchUpsertFiles(fileRecords);
-          console.log(`已保存 ${files.length} 条文件记录到数据库`);
-        } catch (dbErr) {
-          console.error('写入数据库失败:', dbErr);
-        }
-
-        // === 更新 file_manifest.json 中的哈希值（仅 Tauri 模式） ===
-        try {
-          for (const group of groups) {
-            for (const file of group.files) {
-              if (file.hash) {
-                await updateFileManifest(scanPath, file.path, file.hash);
-              }
-            }
-          }
-          console.log('已更新 file_manifest.json 哈希值');
-        } catch (manifestErr) {
-          console.error('更新 manifest 失败:', manifestErr);
-        }
+        console.log(`已将 ${files.length} 条文件记录关联到项目 ${currentProject?.name}`);
       } else {
         console.log(`浏览器模式：共 ${files.length} 个文件，${groups.length} 个重复组`);
       }
@@ -235,7 +177,7 @@ export default function DeduplicationPage({ config, onUpdateConfig }: Deduplicat
     }
 
     setIsScanning(false);
-  }, [config, scanPath]);
+  }, [browserFiles, config, currentProject, scanPath]);
 
   const toggleGroupSelection = useCallback((groupId: string) => {
     setSelectedGroups(prev => {

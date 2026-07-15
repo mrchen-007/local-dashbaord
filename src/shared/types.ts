@@ -240,4 +240,4 @@ export interface DashboardStats {
 }
 
 // 页面类型扩展
-export type Page = 'dashboard' | 'fingerprint' | 'deduplication' | 'version' | 'test' | 'extraction' | 'risk-report' | 'data-network' | 'diagnostics';
+export type Page = 'project-center' | 'dashboard' | 'deduplication' | 'version' | 'extraction' | 'risk-report' | 'data-network' | 'diagnostics';

@@ -6,10 +6,12 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "check": "tsc --noEmit",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
     "verify:golden": "node scripts/verify-golden-contract.mjs",
+    "verify": "npm run check && npm test && npm run verify:golden",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build"

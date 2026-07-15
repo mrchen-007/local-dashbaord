@@ -12,17 +12,6 @@
   "tauri": {
     "allowlist": {
       "all": false,
-      "shell": {
-        "open": true,
-        "sidecar": true,
-        "scope": [
-          {
-            "name": "fclones",
-            "cmd": "fclones",
-            "args": true
-          }
-        ]
-      },
       "dialog": {
         "all": false,
         "open": true,

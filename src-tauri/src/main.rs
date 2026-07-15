@@ -1,7 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use rusqlite::{params_from_iter, types::{Value as SqlValue, ValueRef}, Connection};
+use rusqlite::{params, params_from_iter, types::{Value as SqlValue, ValueRef}, Connection, Row};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use sha2::{Digest, Sha256};
@@ -10,6 +10,73 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use walkdir::WalkDir;
+
+const MIGRATIONS: [(&str, &str); 6] = [
+    ("001_init", include_str!("../../migrations/001_init.sql")),
+    ("002_project_backbone", include_str!("../../migrations/002_project_backbone.sql")),
+    ("003_project_files_and_scan_tasks", include_str!("../../migrations/003_project_files_and_scan_tasks.sql")),
+    ("004_project_field_review", include_str!("../../migrations/004_project_field_review.sql")),
+    ("005_project_ledger_and_risk_findings", include_str!("../../migrations/005_project_ledger_and_risk_findings.sql")),
+    ("006_project_report_exports", include_str!("../../migrations/006_project_report_exports.sql")),
+];
+
+const PROJECT_STATUSES: [&str; 6] = ["draft", "scanning", "extracting", "reviewing", "ready", "archived"];
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ProjectRecord {
+    id: i64,
+    code: Option<String>,
+    name: String,
+    source_root: Option<String>,
+    owner: Option<String>,
+    status: String,
+    created_at: String,
+    updated_at: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CreateProjectInput {
+    code: Option<String>,
+    name: String,
+    owner: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateProjectInput {
+    code: Option<String>,
+    name: Option<String>,
+    owner: Option<String>,
+    status: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProjectScanResult {
+    task_id: i64,
+    files: Vec<FileInfo>,
+    total_count: usize,
+    total_size: u64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProjectFileRecord {
+    id: i64,
+    project_id: i64,
+    absolute_path: String,
+    relative_path: String,
+    file_name: String,
+    extension: String,
+    file_size: i64,
+    modified_time: String,
+    content_hash: Option<String>,
+    scan_status: String,
+    parse_status: String,
+    error_message: Option<String>,
+}
 
 // 文件清单结构体
 #[derive(Debug, Serialize, Deserialize)]
@@ -508,12 +575,258 @@ fn database_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(data_dir.join("dedup_tool.db"))
 }
 
+fn apply_migrations(connection: &mut Connection) -> Result<(), String> {
+    connection.execute_batch(
+        "CREATE TABLE IF NOT EXISTS schema_migrations (
+            version TEXT PRIMARY KEY,
+            applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );",
+    ).map_err(|e| format!("创建迁移记录失败: {e}"))?;
+
+    let transaction = connection.transaction()
+        .map_err(|e| format!("开始迁移事务失败: {e}"))?;
+
+    for (version, sql) in MIGRATIONS {
+        let applied: i64 = transaction.query_row(
+            "SELECT COUNT(1) FROM schema_migrations WHERE version = ?1",
+            params![version],
+            |row| row.get(0),
+        ).map_err(|e| format!("读取迁移记录失败: {e}"))?;
+
+        if applied == 0 {
+            transaction.execute_batch(sql)
+                .map_err(|e| format!("执行迁移 {version} 失败: {e}"))?;
+            transaction.execute(
+                "INSERT INTO schema_migrations (version) VALUES (?1)",
+                params![version],
+            ).map_err(|e| format!("记录迁移 {version} 失败: {e}"))?;
+        }
+    }
+
+    transaction.commit().map_err(|e| format!("提交迁移事务失败: {e}"))
+}
+
 fn open_database(app: &tauri::AppHandle) -> Result<Connection, String> {
-    let connection = Connection::open(database_path(app)?)
+    let mut connection = Connection::open(database_path(app)?)
         .map_err(|e| format!("打开数据库失败: {e}"))?;
     connection.execute_batch("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;")
         .map_err(|e| format!("初始化数据库连接失败: {e}"))?;
+    apply_migrations(&mut connection)?;
     Ok(connection)
+}
+
+fn project_from_row(row: &Row<'_>) -> rusqlite::Result<ProjectRecord> {
+    Ok(ProjectRecord {
+        id: row.get(0)?,
+        code: row.get(1)?,
+        name: row.get(2)?,
+        source_root: row.get(3)?,
+        owner: row.get(4)?,
+        status: row.get(5)?,
+        created_at: row.get(6)?,
+        updated_at: row.get(7)?,
+    })
+}
+
+fn validate_project_status(status: &str) -> Result<(), String> {
+    if PROJECT_STATUSES.contains(&status) {
+        Ok(())
+    } else {
+        Err(format!("不支持的项目状态: {status}"))
+    }
+}
+
+fn normalize_optional(value: Option<String>) -> Option<String> {
+    value.and_then(|value| {
+        let trimmed = value.trim().to_string();
+        (!trimmed.is_empty()).then_some(trimmed)
+    })
+}
+
+#[tauri::command]
+fn list_projects(app: tauri::AppHandle) -> Result<Vec<ProjectRecord>, String> {
+    let connection = open_database(&app)?;
+    let mut statement = connection.prepare(
+        "SELECT id, code, name, source_root, owner, status, created_at, updated_at
+         FROM projects ORDER BY updated_at DESC, id DESC",
+    ).map_err(|e| format!("准备项目列表查询失败: {e}"))?;
+    let rows = statement.query_map([], project_from_row)
+        .map_err(|e| format!("读取项目列表失败: {e}"))?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(|e| format!("读取项目列表失败: {e}"))
+}
+
+#[tauri::command]
+fn get_project(app: tauri::AppHandle, id: i64) -> Result<Option<ProjectRecord>, String> {
+    let connection = open_database(&app)?;
+    let mut statement = connection.prepare(
+        "SELECT id, code, name, source_root, owner, status, created_at, updated_at
+         FROM projects WHERE id = ?1",
+    ).map_err(|e| format!("准备项目查询失败: {e}"))?;
+    let mut rows = statement.query(params![id]).map_err(|e| format!("读取项目失败: {e}"))?;
+    match rows.next().map_err(|e| format!("读取项目失败: {e}"))? {
+        Some(row) => project_from_row(row).map(Some).map_err(|e| format!("读取项目失败: {e}")),
+        None => Ok(None),
+    }
+}
+
+#[tauri::command]
+fn create_project(app: tauri::AppHandle, input: CreateProjectInput) -> Result<ProjectRecord, String> {
+    let name = input.name.trim();
+    if name.is_empty() {
+        return Err("项目名称不能为空".to_string());
+    }
+    let connection = open_database(&app)?;
+    connection.execute(
+        "INSERT INTO projects (code, name, owner, status) VALUES (?1, ?2, ?3, 'draft')",
+        params![normalize_optional(input.code), name, normalize_optional(input.owner)],
+    ).map_err(|e| format!("创建项目失败: {e}"))?;
+    let id = connection.last_insert_rowid();
+    get_project(app, id)?.ok_or_else(|| "创建项目后未找到记录".to_string())
+}
+
+#[tauri::command]
+fn update_project(app: tauri::AppHandle, id: i64, input: UpdateProjectInput) -> Result<ProjectRecord, String> {
+    if let Some(status) = input.status.as_deref() {
+        validate_project_status(status)?;
+    }
+    if let Some(name) = input.name.as_deref() {
+        if name.trim().is_empty() {
+            return Err("项目名称不能为空".to_string());
+        }
+    }
+
+    let connection = open_database(&app)?;
+    let changed = connection.execute(
+        "UPDATE projects
+         SET code = COALESCE(?1, code), name = COALESCE(?2, name),
+             owner = COALESCE(?3, owner), status = COALESCE(?4, status),
+             updated_at = datetime('now')
+         WHERE id = ?5",
+        params![
+            normalize_optional(input.code),
+            normalize_optional(input.name),
+            normalize_optional(input.owner),
+            normalize_optional(input.status),
+            id,
+        ],
+    ).map_err(|e| format!("更新项目失败: {e}"))?;
+    if changed == 0 {
+        return Err("项目不存在".to_string());
+    }
+    get_project(app, id)?.ok_or_else(|| "更新项目后未找到记录".to_string())
+}
+
+#[tauri::command]
+fn bind_project_directory(app: tauri::AppHandle, id: i64, source_root: String) -> Result<ProjectRecord, String> {
+    let directory = PathBuf::from(source_root.trim());
+    if !directory.is_dir() {
+        return Err("资料目录不存在或不可访问".to_string());
+    }
+    let normalized = directory.canonicalize()
+        .map_err(|e| format!("规范化资料目录失败: {e}"))?
+        .to_string_lossy().to_string();
+    let connection = open_database(&app)?;
+    let changed = connection.execute(
+        "UPDATE projects SET source_root = ?1, updated_at = datetime('now') WHERE id = ?2",
+        params![normalized, id],
+    ).map_err(|e| format!("绑定资料目录失败: {e}"))?;
+    if changed == 0 {
+        return Err("项目不存在".to_string());
+    }
+    get_project(app, id)?.ok_or_else(|| "绑定资料目录后未找到记录".to_string())
+}
+
+#[tauri::command]
+fn archive_project(app: tauri::AppHandle, id: i64) -> Result<ProjectRecord, String> {
+    let connection = open_database(&app)?;
+    let changed = connection.execute(
+        "UPDATE projects SET status = 'archived', updated_at = datetime('now') WHERE id = ?1",
+        params![id],
+    ).map_err(|e| format!("归档项目失败: {e}"))?;
+    if changed == 0 {
+        return Err("项目不存在".to_string());
+    }
+    get_project(app, id)?.ok_or_else(|| "归档项目后未找到记录".to_string())
+}
+
+fn collect_project_files(root: &Path, recursive: bool) -> Result<Vec<FileInfo>, String> {
+    let walker = if recursive { WalkDir::new(root).follow_links(false) } else { WalkDir::new(root).max_depth(1).follow_links(false) };
+    let ignored = [".git", "node_modules", "target", "__pycache__", ".backup", ".dedup-backups"];
+    let mut files = Vec::new();
+
+    for entry in walker.into_iter()
+        .filter_entry(|entry| !entry.file_type().is_dir() || !ignored.contains(&entry.file_name().to_string_lossy().as_ref()))
+        .filter_map(|entry| entry.ok()) {
+        if entry.file_type().is_symlink() || entry.file_type().is_dir() { continue; }
+        let metadata = match entry.metadata() { Ok(value) => value, Err(_) => continue };
+        let modified = metadata.modified().ok().and_then(|value| value.duration_since(std::time::UNIX_EPOCH).ok()).map(|value| value.as_secs() as i64).unwrap_or(0);
+        let created = metadata.created().ok().and_then(|value| value.duration_since(std::time::UNIX_EPOCH).ok()).map(|value| value.as_secs() as i64).unwrap_or(0);
+        files.push(FileInfo {
+            path: entry.path().to_string_lossy().to_string(),
+            name: entry.file_name().to_string_lossy().to_string(),
+            size: metadata.len(), modified, created, is_dir: false,
+            extension: entry.path().extension().map(|value| value.to_string_lossy().to_string()).unwrap_or_default(),
+        });
+    }
+    Ok(files)
+}
+
+#[tauri::command]
+fn scan_project(app: tauri::AppHandle, project_id: i64, recursive: bool) -> Result<ProjectScanResult, String> {
+    let mut connection = open_database(&app)?;
+    let source_root: String = connection.query_row(
+        "SELECT source_root FROM projects WHERE id = ?1 AND source_root IS NOT NULL AND source_root <> ''",
+        params![project_id], |row| row.get(0),
+    ).map_err(|_| "项目未绑定可访问的资料目录".to_string())?;
+    let root = PathBuf::from(source_root);
+    if !root.is_dir() { return Err("项目资料目录不存在或不可访问".to_string()); }
+
+    connection.execute(
+        "INSERT INTO project_scan_tasks (project_id, status, recursive) VALUES (?1, 'running', ?2)",
+        params![project_id, i64::from(recursive)],
+    ).map_err(|e| format!("创建扫描任务失败: {e}"))?;
+    let task_id = connection.last_insert_rowid();
+    connection.execute("UPDATE projects SET status = 'scanning', updated_at = datetime('now') WHERE id = ?1", params![project_id])
+        .map_err(|e| format!("更新项目状态失败: {e}"))?;
+
+    let files = match collect_project_files(&root, recursive) {
+        Ok(files) => files,
+        Err(error) => {
+            let _ = connection.execute("UPDATE project_scan_tasks SET status = 'failed', completed_at = datetime('now'), error_message = ?1 WHERE id = ?2", params![error, task_id]);
+            return Err("扫描项目资料失败".to_string());
+        }
+    };
+    let total_size = files.iter().map(|file| file.size).sum();
+    let transaction = connection.transaction().map_err(|e| format!("开始扫描保存事务失败: {e}"))?;
+    for file in &files {
+        let relative_path = Path::new(&file.path).strip_prefix(&root).unwrap_or(Path::new(&file.path)).to_string_lossy().replace('\\', "/");
+        let modified_time = chrono::DateTime::from_timestamp(file.modified, 0).map(|value| value.to_rfc3339()).unwrap_or_default();
+        transaction.execute(
+            "INSERT INTO project_files (project_id, absolute_path, relative_path, file_name, extension, file_size, modified_time, scan_status, parse_status)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'scanned', 'pending')
+             ON CONFLICT(project_id, relative_path) DO UPDATE SET absolute_path = excluded.absolute_path, file_name = excluded.file_name,
+             extension = excluded.extension, file_size = excluded.file_size, modified_time = excluded.modified_time,
+             scan_status = 'scanned', error_message = NULL, updated_at = datetime('now')",
+            params![project_id, file.path, relative_path, file.name, file.extension, file.size as i64, modified_time],
+        ).map_err(|e| format!("保存项目文件失败: {e}"))?;
+    }
+    transaction.execute("UPDATE project_scan_tasks SET status = 'succeeded', total_count = ?1, succeeded_count = ?1, completed_at = datetime('now') WHERE id = ?2", params![files.len() as i64, task_id])
+        .map_err(|e| format!("完成扫描任务失败: {e}"))?;
+    transaction.commit().map_err(|e| format!("提交扫描任务失败: {e}"))?;
+    Ok(ProjectScanResult { task_id, total_count: files.len(), total_size, files })
+}
+
+#[tauri::command]
+fn list_project_files(app: tauri::AppHandle, project_id: i64, limit: Option<i64>) -> Result<Vec<ProjectFileRecord>, String> {
+    let connection = open_database(&app)?;
+    let mut statement = connection.prepare(
+        "SELECT id, project_id, absolute_path, relative_path, file_name, extension, file_size, modified_time, content_hash, scan_status, parse_status, error_message
+         FROM project_files WHERE project_id = ?1 ORDER BY relative_path LIMIT ?2",
+    ).map_err(|e| format!("准备项目文件查询失败: {e}"))?;
+    let rows = statement.query_map(params![project_id, limit.unwrap_or(200)], |row| Ok(ProjectFileRecord {
+        id: row.get(0)?, project_id: row.get(1)?, absolute_path: row.get(2)?, relative_path: row.get(3)?, file_name: row.get(4)?, extension: row.get(5)?, file_size: row.get(6)?, modified_time: row.get(7)?, content_hash: row.get(8)?, scan_status: row.get(9)?, parse_status: row.get(10)?, error_message: row.get(11)?,
+    })).map_err(|e| format!("读取项目文件失败: {e}"))?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(|e| format!("读取项目文件失败: {e}"))
 }
 
 fn json_to_sql_value(value: JsonValue) -> SqlValue {
@@ -575,9 +888,68 @@ fn main() {
             parse_file,
             extract_fields,
             check_uie_service,
+            list_projects,
+            get_project,
+            create_project,
+            update_project,
+            bind_project_directory,
+            archive_project,
+            scan_project,
+            list_project_files,
             db_execute,
             db_select
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn applies_project_backbone_migration_to_a_new_database() {
+        let mut connection = Connection::open_in_memory().expect("open in-memory database");
+        apply_migrations(&mut connection).expect("apply migrations");
+
+        let status: String = connection.query_row(
+            "SELECT status FROM projects WHERE 1 = 0 UNION ALL SELECT 'draft' LIMIT 1",
+            [],
+            |row| row.get(0),
+        ).expect("project status column exists");
+
+        assert_eq!(status, "draft");
+        let applied: i64 = connection.query_row(
+            "SELECT COUNT(1) FROM schema_migrations WHERE version IN ('001_init', '002_project_backbone', '003_project_files_and_scan_tasks', '004_project_field_review', '005_project_ledger_and_risk_findings', '006_project_report_exports')",
+            [],
+            |row| row.get(0),
+        ).expect("read applied migrations");
+        assert_eq!(applied, 6);
+        let project_files_table: i64 = connection.query_row(
+            "SELECT COUNT(1) FROM sqlite_master WHERE type = 'table' AND name = 'project_files'",
+            [],
+            |row| row.get(0),
+        ).expect("project_files table exists");
+        assert_eq!(project_files_table, 1);
+        let report_exports_table: i64 = connection.query_row(
+            "SELECT COUNT(1) FROM sqlite_master WHERE type = 'table' AND name = 'report_exports'",
+            [],
+            |row| row.get(0),
+        ).expect("report_exports table exists");
+        assert_eq!(report_exports_table, 1);
+    }
+
+    #[test]
+    fn project_scan_excludes_ignored_directories() {
+        let root = std::env::temp_dir().join(format!("dedup-tool-scan-test-{}", std::process::id()));
+        fs::create_dir_all(root.join(".git")).expect("create ignored directory");
+        fs::write(root.join("keep.txt"), "keep").expect("write source file");
+        fs::write(root.join(".git").join("config"), "ignore").expect("write ignored file");
+
+        let files = collect_project_files(&root, true).expect("scan project files");
+        let names = files.iter().map(|file| file.name.as_str()).collect::<Vec<_>>();
+        assert_eq!(names, vec!["keep.txt"]);
+
+        fs::remove_dir_all(root).expect("remove test directory");
+    }
 }

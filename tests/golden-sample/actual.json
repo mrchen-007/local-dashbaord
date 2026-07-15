@@ -1,0 +1,1045 @@
+{
+  "schema_version": 1,
+  "sample_directory": "D:\\02.chenwenke2024\\09.联营项目\\019榆横工业区废渣处置场三期项目一阶段工程施工",
+  "total_files": 145,
+  "counts": {
+    "failed": 5,
+    "success": 100,
+    "unsupported": 40
+  },
+  "by_extension": {
+    ".doc": {
+      "success": 7
+    },
+    ".docx": {
+      "success": 16
+    },
+    ".dwg": {
+      "unsupported": 26
+    },
+    ".gbq6": {
+      "unsupported": 3
+    },
+    ".jpg": {
+      "failed": 1
+    },
+    ".json": {
+      "success": 1
+    },
+    ".log": {
+      "unsupported": 1
+    },
+    ".md": {
+      "success": 1
+    },
+    ".pdf": {
+      "success": 28
+    },
+    ".png": {
+      "failed": 2
+    },
+    ".rar": {
+      "unsupported": 3
+    },
+    ".sxtb": {
+      "unsupported": 2
+    },
+    ".txt": {
+      "success": 2
+    },
+    ".xls": {
+      "success": 5
+    },
+    ".xlsx": {
+      "failed": 2,
+      "success": 40
+    },
+    ".zip": {
+      "unsupported": 4
+    },
+    "<none>": {
+      "unsupported": 1
+    }
+  },
+  "failed_files": [
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\02甲批量及预付款资料\\开票申请单\\一般纳税人.png",
+      "extension": ".png",
+      "status": "failed",
+      "error": "解析失败: PluginError: Plugin error in 'tesseract': OCR backend 'tesseract' not registered. Available backends: [\"paddle-ocr\", \"vlm\"]",
+      "parse_duration_ms": 4
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\02甲批量及预付款资料\\开票申请单\\甲方开票信息.jpg",
+      "extension": ".jpg",
+      "status": "failed",
+      "error": "解析失败: PluginError: Plugin error in 'tesseract': OCR backend 'tesseract' not registered. Available backends: [\"paddle-ocr\", \"vlm\"]",
+      "parse_duration_ms": 12
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\08分供结算\\分包结算资料汇总\\榆横工业区废渣处置场三期项目-2025.11月分供结算及发票\\强夯单位-金汇\\~$01强夯工程专业分包任务书结算单表格模板.xlsx",
+      "extension": ".xlsx",
+      "status": "failed",
+      "error": "解析失败: ParsingError: Failed to parse XLSX: Zip error: invalid Zip archive: Could not find EOCD",
+      "parse_duration_ms": 0
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\08分供结算\\分包结算资料汇总\\榆横工业区废渣处置场三期项目-2026.3月分供结算及发票\\强夯单位-金汇\\~$01强夯工程专业分包任务书结算单表格模板.xlsx",
+      "extension": ".xlsx",
+      "status": "failed",
+      "error": "解析失败: ParsingError: Failed to parse XLSX: Zip error: invalid Zip archive: Could not find EOCD",
+      "parse_duration_ms": 2
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\09.2026-6-10数据\\45970328d62d1980eaf5f189b328772f.png",
+      "extension": ".png",
+      "status": "failed",
+      "error": "解析失败: PluginError: Plugin error in 'tesseract': OCR backend 'tesseract' not registered. Available backends: [\"paddle-ocr\", \"vlm\"]",
+      "parse_duration_ms": 2
+    }
+  ],
+  "unsupported_files": [
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\CAD版\\01 土建工程\\01~06 说明及主要工程量表.dwg",
+      "extension": ".dwg",
+      "status": "unsupported",
+      "error": "unsupported format: .dwg"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\CAD版\\01 土建工程\\07~11 总图.dwg",
+      "extension": ".dwg",
+      "status": "unsupported",
+      "error": "unsupported format: .dwg"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\CAD版\\01 土建工程\\12~18 场底及堆体剖面图.dwg",
+      "extension": ".dwg",
+      "status": "unsupported",
+      "error": "unsupported format: .dwg"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\CAD版\\01 土建工程\\19 土方平衡图.dwg",
+      "extension": ".dwg",
+      "status": "unsupported",
+      "error": "unsupported format: .dwg"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\CAD版\\01 土建工程\\20~29 坑口线平面布置图.dwg",
+      "extension": ".dwg",
+      "status": "unsupported",
+      "error": "unsupported format: .dwg"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\CAD版\\01 土建工程\\32 防护网安装详图.dwg",
+      "extension": ".dwg",
+      "status": "unsupported",
+      "error": "unsupported format: .dwg"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\CAD版\\01 土建工程\\33~34 地下水监测井平面布置图.dwg",
+      "extension": ".dwg",
+      "status": "unsupported",
+      "error": "unsupported format: .dwg"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\CAD版\\01 土建工程\\plot.log",
+      "extension": ".log",
+      "status": "unsupported",
+      "error": "unsupported format: .log"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\CAD版\\01 土建工程\\修改30-31 地基处理设计图.dwg",
+      "extension": ".dwg",
+      "status": "unsupported",
+      "error": "unsupported format: .dwg"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\CAD版\\02 防渗工程\\01-02 防渗设计说明.dwg",
+      "extension": ".dwg",
+      "status": "unsupported",
+      "error": "unsupported format: .dwg"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\CAD版\\02 防渗工程\\03~04 总图.dwg",
+      "extension": ".dwg",
+      "status": "unsupported",
+      "error": "unsupported format: .dwg"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\CAD版\\02 防渗工程\\05 渗沥液导液竖井平面布置图.dwg",
+      "extension": ".dwg",
+      "status": "unsupported",
+      "error": "unsupported format: .dwg"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\CAD版\\02 防渗工程\\06~11 防渗大样图.dwg",
+      "extension": ".dwg",
+      "status": "unsupported",
+      "error": "unsupported format: .dwg"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\CAD版\\02 防渗工程\\12 分流井工艺图.dwg",
+      "extension": ".dwg",
+      "status": "unsupported",
+      "error": "unsupported format: .dwg"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\CAD版\\02 防渗工程\\13~15 分流池结构图.dwg",
+      "extension": ".dwg",
+      "status": "unsupported",
+      "error": "unsupported format: .dwg"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\CAD版\\03 围堤、坝体工程\\01-08 设计说明及环场围堤平面布置图.dwg",
+      "extension": ".dwg",
+      "status": "unsupported",
+      "error": "unsupported format: .dwg"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\CAD版\\03 围堤、坝体工程\\09~13 环场围堤大样图.dwg",
+      "extension": ".dwg",
+      "status": "unsupported",
+      "error": "unsupported format: .dwg"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\CAD版\\03 围堤、坝体工程\\14 -15拦渣坝平面图.dwg",
+      "extension": ".dwg",
+      "status": "unsupported",
+      "error": "unsupported format: .dwg"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\CAD版\\03 围堤、坝体工程\\17 洗车平台工艺图.dwg",
+      "extension": ".dwg",
+      "status": "unsupported",
+      "error": "unsupported format: .dwg"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\CAD版\\03 围堤、坝体工程\\18-23 洗车平台水池结构设计图.dwg",
+      "extension": ".dwg",
+      "status": "unsupported",
+      "error": "unsupported format: .dwg"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\CAD版\\04 填埋工艺\\01 填埋工艺设计说明.dwg",
+      "extension": ".dwg",
+      "status": "unsupported",
+      "error": "unsupported format: .dwg"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\CAD版\\04 填埋工艺\\02 填埋作业工艺流程图.dwg",
+      "extension": ".dwg",
+      "status": "unsupported",
+      "error": "unsupported format: .dwg"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\CAD版\\04 填埋工艺\\03 填埋工艺示意图.dwg",
+      "extension": ".dwg",
+      "status": "unsupported",
+      "error": "unsupported format: .dwg"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\CAD版\\05 雨水导排工程\\01-02 设计说明及A段排水沟平面布置图.dwg",
+      "extension": ".dwg",
+      "status": "unsupported",
+      "error": "unsupported format: .dwg"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\CAD版\\05 雨水导排工程\\03~09、11~17 雨水导排纵断面图.dwg",
+      "extension": ".dwg",
+      "status": "unsupported",
+      "error": "unsupported format: .dwg"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\CAD版\\05 雨水导排工程\\10 B段排水沟平面布置图.dwg",
+      "extension": ".dwg",
+      "status": "unsupported",
+      "error": "unsupported format: .dwg"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\CAD版\\05 雨水导排工程\\18 环场排水沟大样图.dwg",
+      "extension": ".dwg",
+      "status": "unsupported",
+      "error": "unsupported format: .dwg"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\CAD版.rar",
+      "extension": ".rar",
+      "status": "unsupported",
+      "error": "unsupported format: .rar"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\03陕西建工第九建设集团有限公司项目商务管理办法\\附件\\附件2：成本分析报告.zip",
+      "extension": ".zip",
+      "status": "unsupported",
+      "error": "unsupported format: .zip"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\05分供结算相关制度\\02   十二公司分供结算模板【2025版】\\01  劳务分包、专业分包任务书结算单表格模板.zip",
+      "extension": ".zip",
+      "status": "unsupported",
+      "error": "unsupported format: .zip"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\05分供结算相关制度.rar",
+      "extension": ".rar",
+      "status": "unsupported",
+      "error": "unsupported format: .rar"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\06 预算 陕建九建\\榆横工业区废渣处置场三期项目一阶段_投标书\\电子投标书\\榆横工业区废渣处置场三期项目一阶段001[2025-5-20 17：54].SXTB",
+      "extension": ".sxtb",
+      "status": "unsupported",
+      "error": "unsupported format: .sxtb"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\06 预算 陕建九建\\榆横工业区废渣处置场三期项目一阶段_投标书\\电子投标书\\榆横工业区废渣处置场三期项目一阶段中标预算.GBQ6",
+      "extension": ".gbq6",
+      "status": "unsupported",
+      "error": "unsupported format: .gbq6"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\06 预算 陕建九建\\陕建九建\\榆横工业区废渣处置场三期项目一阶段_投标书\\电子投标书\\榆横工业区废渣处置场三期项目一阶段.GBQ6",
+      "extension": ".gbq6",
+      "status": "unsupported",
+      "error": "unsupported format: .gbq6"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\06 预算 陕建九建\\陕建九建\\榆横工业区废渣处置场三期项目一阶段_投标书\\电子投标书\\榆横工业区废渣处置场三期项目一阶段001[2025-5-20 17：54].SXTB",
+      "extension": ".sxtb",
+      "status": "unsupported",
+      "error": "unsupported format: .sxtb"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\06 预算 陕建九建\\陕建九建.rar",
+      "extension": ".rar",
+      "status": "unsupported",
+      "error": "unsupported format: .rar"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\07建造合同\\2026年3月建造合同.zip",
+      "extension": ".zip",
+      "status": "unsupported",
+      "error": "unsupported format: .zip"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\08分供结算\\分包结算资料汇总.zip",
+      "extension": ".zip",
+      "status": "unsupported",
+      "error": "unsupported format: .zip"
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\09.2026-6-10数据\\榆横工业区废渣处置场三期项目一阶段中标预算.GBQ6",
+      "extension": ".gbq6",
+      "status": "unsupported",
+      "error": "unsupported format: .gbq6"
+    },
+    {
+      "path": "下载报告",
+      "extension": "<none>",
+      "status": "unsupported",
+      "error": "unsupported format: <none>"
+    }
+  ],
+  "successful_files": [
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\001二次经营策划、复量工作\\工程量清单差异分析表.docx",
+      "extension": ".docx",
+      "status": "success",
+      "content_length": 954,
+      "parse_duration_ms": 47
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\001二次经营策划、复量工作\\附件1：二次经营策划书.doc",
+      "extension": ".doc",
+      "status": "success",
+      "content_length": 6375,
+      "parse_duration_ms": 5
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\CAD版\\03 围堤、坝体工程\\洗车平台水池计算书.doc",
+      "extension": ".doc",
+      "status": "success",
+      "content_length": 19388,
+      "parse_duration_ms": 5
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\榆横工业区废渣处置场三期项目一阶段工程施工合同-盖章版(1).pdf",
+      "extension": ".pdf",
+      "status": "success",
+      "content_length": 1548,
+      "parse_duration_ms": 839
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\01施工合同及图纸\\榆横工业区废渣处置场三期项目一阶段工程施工合同6.6（签订版）(1).doc",
+      "extension": ".doc",
+      "status": "success",
+      "content_length": 91018,
+      "parse_duration_ms": 27
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\02甲批量及预付款资料\\开票申请单\\开票申请---2025.7.9.xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 830,
+      "parse_duration_ms": 3
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\02甲批量及预付款资料\\开票申请单\\榆横工业区废渣处置场三期项目一阶段工程施工合同-盖章版(1).pdf",
+      "extension": ".pdf",
+      "status": "success",
+      "content_length": 1548,
+      "parse_duration_ms": 316
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\02甲批量及预付款资料\\开票申请单\\甲方营业执照(1).pdf",
+      "extension": ".pdf",
+      "status": "success",
+      "content_length": 1548,
+      "parse_duration_ms": 394
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\02甲批量及预付款资料\\扫描全能王 2025-10-20 16.21.pdf",
+      "extension": ".pdf",
+      "status": "success",
+      "content_length": 0,
+      "parse_duration_ms": 4
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\02甲批量及预付款资料\\第一次甲批量形象进度.pdf",
+      "extension": ".pdf",
+      "status": "success",
+      "content_length": 0,
+      "parse_duration_ms": 3
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\02甲批量及预付款资料\\第一次进度款申报.pdf",
+      "extension": ".pdf",
+      "status": "success",
+      "content_length": 0,
+      "parse_duration_ms": 3
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03_UNSTRUCTURED_TEXT_OCR结果_20260601\\_ocr_summary_images.json",
+      "extension": ".json",
+      "status": "success",
+      "content_length": 316,
+      "parse_duration_ms": 1
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03_UNSTRUCTURED_TEXT_OCR结果_20260601\\一般纳税人.png.txt",
+      "extension": ".txt",
+      "status": "success",
+      "content_length": 370,
+      "parse_duration_ms": 1
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03_UNSTRUCTURED_TEXT_OCR结果_20260601\\甲方开票信息.jpg.txt",
+      "extension": ".txt",
+      "status": "success",
+      "content_length": 305,
+      "parse_duration_ms": 1
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\01陕西建工第九建设集团有限公司合作项目管理制度\\关于印发《陕西建工第九建设集团有限公司合作项目管理制度》的通知.pdf",
+      "extension": ".pdf",
+      "status": "success",
+      "content_length": 302,
+      "parse_duration_ms": 6
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\01陕西建工第九建设集团有限公司合作项目管理制度\\附件：陕西建工第九建设集团有限公司合作项目管理制度\\附件1：工程项目及管理负责人基本情况考察审批表.docx",
+      "extension": ".docx",
+      "status": "success",
+      "content_length": 2416,
+      "parse_duration_ms": 3
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\01陕西建工第九建设集团有限公司合作项目管理制度\\附件：陕西建工第九建设集团有限公司合作项目管理制度\\附件2：考察报告.docx",
+      "extension": ".docx",
+      "status": "success",
+      "content_length": 373,
+      "parse_duration_ms": 0
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\01陕西建工第九建设集团有限公司合作项目管理制度\\附件：陕西建工第九建设集团有限公司合作项目管理制度\\附件3：《项目管理目标责任合同》.docx",
+      "extension": ".docx",
+      "status": "success",
+      "content_length": 13235,
+      "parse_duration_ms": 9
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\01陕西建工第九建设集团有限公司合作项目管理制度\\附件：陕西建工第九建设集团有限公司合作项目管理制度\\附件4：项目管理目标责任备案笔录.docx",
+      "extension": ".docx",
+      "status": "success",
+      "content_length": 5209,
+      "parse_duration_ms": 4
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\01陕西建工第九建设集团有限公司合作项目管理制度\\附件：陕西建工第九建设集团有限公司合作项目管理制度\\附件5：《项目经营管理责任人承诺书》.docx",
+      "extension": ".docx",
+      "status": "success",
+      "content_length": 2548,
+      "parse_duration_ms": 3
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\01陕西建工第九建设集团有限公司合作项目管理制度\\附件：陕西建工第九建设集团有限公司合作项目管理制度\\附件6：工程施工组织管理承诺书.docx",
+      "extension": ".docx",
+      "status": "success",
+      "content_length": 2327,
+      "parse_duration_ms": 2
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\01陕西建工第九建设集团有限公司合作项目管理制度\\附件：陕西建工第九建设集团有限公司合作项目管理制度\\附件7：《项目管理目标责任合同》审批流程.docx",
+      "extension": ".docx",
+      "status": "success",
+      "content_length": 18,
+      "parse_duration_ms": 1
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\01陕西建工第九建设集团有限公司合作项目管理制度\\附件：陕西建工第九建设集团有限公司合作项目管理制度\\附件：陕西建工第九建设集团有限公司合作项目管理制度.pdf",
+      "extension": ".pdf",
+      "status": "success",
+      "content_length": 7416,
+      "parse_duration_ms": 39
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\02陕西建工第九建设集团有限公司工程项目结算管理办法\\关于印发《陕西建工第九建设集团有限公司工程项目结算管理办法》的通知.pdf",
+      "extension": ".pdf",
+      "status": "success",
+      "content_length": 311,
+      "parse_duration_ms": 6
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\02陕西建工第九建设集团有限公司工程项目结算管理办法\\附件：陕西建工第九建设集团有限公司工程项目结算管理办法.pdf",
+      "extension": ".pdf",
+      "status": "success",
+      "content_length": 3355,
+      "parse_duration_ms": 19
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\03陕西建工第九建设集团有限公司项目商务管理办法\\关于印发《陕西建工第九建设集团有限公司项目商务管理办法》的通知.pdf",
+      "extension": ".pdf",
+      "status": "success",
+      "content_length": 293,
+      "parse_duration_ms": 6
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\03陕西建工第九建设集团有限公司项目商务管理办法\\附件\\附件1：二次经营策划等相关程序和表格.doc",
+      "extension": ".doc",
+      "status": "success",
+      "content_length": 21241,
+      "parse_duration_ms": 8
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\03陕西建工第九建设集团有限公司项目商务管理办法\\附件\\附件3：项目商务例会报告.doc",
+      "extension": ".doc",
+      "status": "success",
+      "content_length": 1934,
+      "parse_duration_ms": 2
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\03陕西建工第九建设集团有限公司项目商务管理办法\\附件\\附件4：项目竣工结算商务策划书.doc",
+      "extension": ".doc",
+      "status": "success",
+      "content_length": 1988,
+      "parse_duration_ms": 2
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\03陕西建工第九建设集团有限公司项目商务管理办法\\附件\\附件：陕西建工第九建设集团有限公司项目商务管理办法.pdf",
+      "extension": ".pdf",
+      "status": "success",
+      "content_length": 14293,
+      "parse_duration_ms": 72
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\03陕西建工第九建设集团有限公司项目商务管理办法\\附件\\附表5：《商务管理检查表》.xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 10254,
+      "parse_duration_ms": 11
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\05分供结算相关制度\\01 （2022）54号- 关于规范分供结算办理的通知\\附件1-4.docx",
+      "extension": ".docx",
+      "status": "success",
+      "content_length": 6386,
+      "parse_duration_ms": 8
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\05分供结算相关制度\\01 （2022）54号- 关于规范分供结算办理的通知\\陕九建通〔2022〕54号   关于规范分供结算办理的通知.pdf",
+      "extension": ".pdf",
+      "status": "success",
+      "content_length": 0,
+      "parse_duration_ms": 3
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\05分供结算相关制度\\02   十二公司分供结算模板【2025版】\\01  劳务分包、专业分包任务书结算单表格模板.xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 6620,
+      "parse_duration_ms": 5
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\05分供结算相关制度\\02   十二公司分供结算模板【2025版】\\02  商砼、临工、临时机械任务书结算单表格模板.xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 5938,
+      "parse_duration_ms": 4
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\05分供结算相关制度\\02   十二公司分供结算模板【2025版】\\03  机械租赁任务书结算单模板.xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 6123,
+      "parse_duration_ms": 4
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\06建造合同相关制度\\01陕九建通〔2020〕70号  关于印发《陕西建工第九建设集团有限公司建造合同准则执行管理暂行办法》的通知\\附件：陕西建工第九建设集团有限公司建造合同准则执行管理暂行办法.pdf",
+      "extension": ".pdf",
+      "status": "success",
+      "content_length": 14979,
+      "parse_duration_ms": 68
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\06建造合同相关制度\\01陕九建通〔2020〕70号  关于印发《陕西建工第九建设集团有限公司建造合同准则执行管理暂行办法》的通知\\陕九建通〔2020〕70号  关于印发《陕西建工第九建设集团有限公司建造合同准则执行管理暂行办法》的通知.pdf",
+      "extension": ".pdf",
+      "status": "success",
+      "content_length": 0,
+      "parse_duration_ms": 2
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\06建造合同相关制度\\02建造合同预算三张表模板（附件1-附件3）\\附件1.预计总收入调整汇总表.xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 843,
+      "parse_duration_ms": 2
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\06建造合同相关制度\\02建造合同预算三张表模板（附件1-附件3）\\附件2.预计总成本调整汇总表.xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 1630,
+      "parse_duration_ms": 1
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\03合作项目商务业务交底资料2025.10\\06建造合同相关制度\\02建造合同预算三张表模板（附件1-附件3）\\附件3.预计总成本动态调整表.xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 20220,
+      "parse_duration_ms": 7
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\04分包合同\\04土方工程专业分包合同-联营 -锁定版.docx",
+      "extension": ".docx",
+      "status": "success",
+      "content_length": 44443,
+      "parse_duration_ms": 24
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\04分包合同\\强夯合同-钉钉审批版.docx",
+      "extension": ".docx",
+      "status": "success",
+      "content_length": 43127,
+      "parse_duration_ms": 23
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\04分包合同\\防渗导排、绿化、环场道路（含排水沟等）、围栏、安装、监控、电力及通信等综合工程专业分包合同（修订）.docx",
+      "extension": ".docx",
+      "status": "success",
+      "content_length": 43619,
+      "parse_duration_ms": 25
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\05项目管理目标责任合同 电子版\\附件3：《项目管理目标责任合同》（合作项目九建与合作方签）.docx",
+      "extension": ".docx",
+      "status": "success",
+      "content_length": 13273,
+      "parse_duration_ms": 8
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\06 预算 陕建九建\\总说明.docx",
+      "extension": ".docx",
+      "status": "success",
+      "content_length": 172,
+      "parse_duration_ms": 1
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\06 预算 陕建九建\\陕建九建\\总说明.docx",
+      "extension": ".docx",
+      "status": "success",
+      "content_length": 172,
+      "parse_duration_ms": 2
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\07建造合同\\2025.10月份\\建造合同财务三张表2025年10月——废渣.xls",
+      "extension": ".xls",
+      "status": "success",
+      "content_length": 3015,
+      "parse_duration_ms": 2
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\07建造合同\\2025.11月份\\建造合同财务三张表2025年11月——废渣(2)(1).xls",
+      "extension": ".xls",
+      "status": "success",
+      "content_length": 3294,
+      "parse_duration_ms": 1
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\07建造合同\\2025.11月份\\附件1.预计总收入调整汇总表(1).xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 828,
+      "parse_duration_ms": 1
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\07建造合同\\2025.11月份\\附件2.预计总成本调整汇总表(1).xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 1621,
+      "parse_duration_ms": 2
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\07建造合同\\2025.11月份\\附件3.预计总成本动态调整表(1).xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 14182,
+      "parse_duration_ms": 7
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\07建造合同\\2025.12月份（附件3修改）\\建造合同财务三张表2025年12月——废渣.xls",
+      "extension": ".xls",
+      "status": "success",
+      "content_length": 3530,
+      "parse_duration_ms": 1
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\07建造合同\\2025.12月份（附件3修改）\\附件1.预计总收入调整汇总表(4).xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 828,
+      "parse_duration_ms": 2
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\07建造合同\\2025.12月份（附件3修改）\\附件2.预计总成本调整汇总表(4).xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 1621,
+      "parse_duration_ms": 3
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\07建造合同\\2025.12月份（附件3修改）\\附件3.预计总成本动态调整表(2).xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 15327,
+      "parse_duration_ms": 8
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\07建造合同\\2026.1月份\\建造合同财务三张表2026年1月——废渣(1).xls",
+      "extension": ".xls",
+      "status": "success",
+      "content_length": 3672,
+      "parse_duration_ms": 2
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\07建造合同\\2026.1月份\\附件1.预计总收入调整汇总表(3).xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 827,
+      "parse_duration_ms": 3
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\07建造合同\\2026.1月份\\附件2.预计总成本调整汇总表(3).xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 1621,
+      "parse_duration_ms": 2
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\07建造合同\\2026.1月份\\附件3.预计总成本动态调整表(4).xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 17211,
+      "parse_duration_ms": 8
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\07建造合同\\2026年3月建造合同\\建造合同财务三张表2026年3月——废渣(1).xls",
+      "extension": ".xls",
+      "status": "success",
+      "content_length": 3895,
+      "parse_duration_ms": 1
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\07建造合同\\2026年3月建造合同\\附件1.预计总收入调整汇总表.xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 827,
+      "parse_duration_ms": 4
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\07建造合同\\2026年3月建造合同\\附件2.预计总成本调整汇总表.xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 1854,
+      "parse_duration_ms": 2
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\07建造合同\\2026年3月建造合同\\附件3.预计总成本动态调整表.xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 18333,
+      "parse_duration_ms": 10
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\07建造合同\\废渣(1).xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 487,
+      "parse_duration_ms": 1
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\07建造合同\\废渣处置场项目初始预计总收入、预计总成本\\标前成测算模板.xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 23677,
+      "parse_duration_ms": 34
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\07建造合同\\废渣处置场项目初始预计总收入、预计总成本\\附件1.预计总收入调整汇总表.xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 829,
+      "parse_duration_ms": 3
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\07建造合同\\废渣处置场项目初始预计总收入、预计总成本\\附件2.预计总成本调整汇总表.xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 1621,
+      "parse_duration_ms": 2
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\07建造合同\\废渣处置场项目初始预计总收入、预计总成本\\附件3.预计总成本动态调整表.xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 10989,
+      "parse_duration_ms": 7
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\07建造合同\\附件1.预计总收入调整汇总表.xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 831,
+      "parse_duration_ms": 3
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\07建造合同\\附件2.预计总成本调整汇总表.xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 1631,
+      "parse_duration_ms": 1
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\07建造合同\\附件3.预计总成本动态调整表.xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 20220,
+      "parse_duration_ms": 11
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\08分供结算\\2025.10\\土方班组分包任务书结算单.xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 6319,
+      "parse_duration_ms": 4
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\08分供结算\\2025.10\\强夯工程专业分包任务书结算单.xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 6099,
+      "parse_duration_ms": 4
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\08分供结算\\2025.10\\榆林筑天辰建筑工程有限公司.pdf",
+      "extension": ".pdf",
+      "status": "success",
+      "content_length": 528,
+      "parse_duration_ms": 4
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\08分供结算\\2025.10\\陕西金汇建设工程有限公 司.pdf",
+      "extension": ".pdf",
+      "status": "success",
+      "content_length": 524,
+      "parse_duration_ms": 5
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\08分供结算\\2025年11月废渣项目结算单.pdf",
+      "extension": ".pdf",
+      "status": "success",
+      "content_length": 0,
+      "parse_duration_ms": 8
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\08分供结算\\2026.3\\dzfp_26612000000541405036_陕西建工第九建设集团有限公司_20260324111620.pdf",
+      "extension": ".pdf",
+      "status": "success",
+      "content_length": 518,
+      "parse_duration_ms": 5
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\08分供结算\\2026.3\\dzfp_26612000000544685716_陕西建工第九建设集团有限公司_20260324144901.pdf",
+      "extension": ".pdf",
+      "status": "success",
+      "content_length": 521,
+      "parse_duration_ms": 5
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\08分供结算\\分包结算资料汇总\\榆横工业区废渣处置场三期项目-2025.10月分供结算及发票\\土方单位-筑天辰\\01土方班组分包任务书结算单表格模板.xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 6353,
+      "parse_duration_ms": 5
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\08分供结算\\分包结算资料汇总\\榆横工业区废渣处置场三期项目-2025.10月分供结算及发票\\土方单位-筑天辰\\筑天辰2025.10.20.pdf",
+      "extension": ".pdf",
+      "status": "success",
+      "content_length": 528,
+      "parse_duration_ms": 5
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\08分供结算\\分包结算资料汇总\\榆横工业区废渣处置场三期项目-2025.10月分供结算及发票\\强夯单位-金汇\\01强夯工程专业分包任务书结算单表格模板.xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 6104,
+      "parse_duration_ms": 5
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\08分供结算\\分包结算资料汇总\\榆横工业区废渣处置场三期项目-2025.10月分供结算及发票\\强夯单位-金汇\\金汇2025.10.29.pdf",
+      "extension": ".pdf",
+      "status": "success",
+      "content_length": 522,
+      "parse_duration_ms": 5
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\08分供结算\\分包结算资料汇总\\榆横工业区废渣处置场三期项目-2025.11月分供结算及发票\\土方单位-筑天辰\\02土方班组分包任务书结算单表格模板.xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 6286,
+      "parse_duration_ms": 6
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\08分供结算\\分包结算资料汇总\\榆横工业区废渣处置场三期项目-2025.11月分供结算及发票\\土方单位-筑天辰\\筑天辰2025.11.25.pdf",
+      "extension": ".pdf",
+      "status": "success",
+      "content_length": 524,
+      "parse_duration_ms": 4
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\08分供结算\\分包结算资料汇总\\榆横工业区废渣处置场三期项目-2025.11月分供结算及发票\\强夯单位-金汇\\02强夯工程专业分包任务书结算单表格模板.xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 6089,
+      "parse_duration_ms": 4
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\08分供结算\\分包结算资料汇总\\榆横工业区废渣处置场三期项目-2025.11月分供结算及发票\\强夯单位-金汇\\金汇2025.11.24.pdf",
+      "extension": ".pdf",
+      "status": "success",
+      "content_length": 525,
+      "parse_duration_ms": 4
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\08分供结算\\分包结算资料汇总\\榆横工业区废渣处置场三期项目-2025.11月分供结算及发票\\防渗导排、绿化、环场道路（含排水沟等）、围栏、安装、监控、电力及通信工程-瓴域建设\\01陕西瓴域分包任务书结算单表格模板.xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 6408,
+      "parse_duration_ms": 7
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\08分供结算\\分包结算资料汇总\\榆横工业区废渣处置场三期项目-2025.11月分供结算及发票\\防渗导排、绿化、环场道路（含排水沟等）、围栏、安装、监控、电力及通信工程-瓴域建设\\瓴域发票2026.01.27.pdf",
+      "extension": ".pdf",
+      "status": "success",
+      "content_length": 479,
+      "parse_duration_ms": 4
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\08分供结算\\分包结算资料汇总\\榆横工业区废渣处置场三期项目-2026.3月分供结算及发票\\土方单位-筑天辰\\03土方班组分包任务书结算单表格模板.xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 6425,
+      "parse_duration_ms": 5
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\08分供结算\\分包结算资料汇总\\榆横工业区废渣处置场三期项目-2026.3月分供结算及发票\\土方单位-筑天辰\\dzfp_26612000000544685716_陕西建工第九建设集团有限公司_20260324144901.pdf",
+      "extension": ".pdf",
+      "status": "success",
+      "content_length": 521,
+      "parse_duration_ms": 4
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\08分供结算\\分包结算资料汇总\\榆横工业区废渣处置场三期项目-2026.3月分供结算及发票\\强夯单位-金汇\\03强夯工程专业分包任务书结算单表格模板.xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 6083,
+      "parse_duration_ms": 9
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\08分供结算\\分包结算资料汇总\\榆横工业区废渣处置场三期项目-2026.3月分供结算及发票\\强夯单位-金汇\\dzfp_26612000000541405036_陕西建工第九建设集团有限公司_20260324111620.pdf",
+      "extension": ".pdf",
+      "status": "success",
+      "content_length": 518,
+      "parse_duration_ms": 4
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\08分供结算\\废渣项目10月份结算单.pdf",
+      "extension": ".pdf",
+      "status": "success",
+      "content_length": 0,
+      "parse_duration_ms": 6
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\08分供结算\\项目分供结算台账2025年(1).xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 2453,
+      "parse_duration_ms": 5
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\09.2026-6-10数据\\中鑫吉安\\附件五招标公告.docx",
+      "extension": ".docx",
+      "status": "success",
+      "content_length": 3194,
+      "parse_duration_ms": 4
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\09.2026-6-10数据\\中鑫吉安\\附件五招标文件.doc",
+      "extension": ".doc",
+      "status": "success",
+      "content_length": 7060,
+      "parse_duration_ms": 4
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\09.2026-6-10数据\\中鑫吉安\\附件四招标计划.xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 3060,
+      "parse_duration_ms": 8
+    },
+    {
+      "path": "019榆横工业区废渣处置场三期项目一阶段工程施工\\榆横工业区废渣处置场三期项目一阶段工程_移交报告.md",
+      "extension": ".md",
+      "status": "success",
+      "content_length": 6281,
+      "parse_duration_ms": 3
+    },
+    {
+      "path": "陕建集团2026年6月施工项目甲批量统计表-九建集团-十二公司 -模板(3).xlsx",
+      "extension": ".xlsx",
+      "status": "success",
+      "content_length": 81717,
+      "parse_duration_ms": 418
+    }
+  ]
+}
